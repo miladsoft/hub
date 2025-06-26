@@ -41,6 +41,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           allRelays.add(url);
         }
         
+        console.log(`🔄 NostrProvider: Using ${allRelays.size} relays for data fetching:`, Array.from(allRelays));
+        
         // Return the same filters for all relays to aggregate data
         const relayMap = new Map();
         for (const relay of allRelays) {

@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Target, TrendingUp, Users, Globe } from 'lucide-react';
+import { Target, TrendingUp, Users, Bitcoin } from 'lucide-react';
 import type { AngorProject } from '@/types/angor';
 import { useProjectsStatistics } from '@/hooks/useProjectsStatistics';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useBitcoinPrice } from '@/hooks/useBitcoinPrice';
 
 interface ProjectsStatisticsProps {
   projects: AngorProject[];
@@ -18,6 +19,9 @@ export function ProjectsStatistics({
   
   // Get current network
   const { network } = useNetwork();
+  
+  // Get Bitcoin price from mempool.space
+  const { data: bitcoinPrice, isLoading: priceLoading, error: priceError } = useBitcoinPrice();
   
   // Use the new hook to get comprehensive statistics
   const statistics = useProjectsStatistics({ 
@@ -90,18 +94,26 @@ export function ProjectsStatistics({
           </CardContent>
         </Card>
 
-        {/* Current Network */}
+        {/* Bitcoin Price */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Network</CardTitle>
-            <Globe className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Bitcoin Price</CardTitle>
+            <Bitcoin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {network === 'mainnet' ? 'Mainnet' : 'Testnet'}
-            </div>
+            {priceLoading ? (
+              <div className="text-2xl font-bold text-muted-foreground">Loading...</div>
+            ) : priceError ? (
+              <div className="text-2xl font-bold text-red-500">Error</div>
+            ) : bitcoinPrice ? (
+              <div className="text-2xl font-bold">
+                ${bitcoinPrice.USD.toLocaleString()}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold text-muted-foreground">N/A</div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Bitcoin {network}
+              {network === 'mainnet' ? 'Live price' : 'Testnet mode'}
             </p>
           </CardContent>
         </Card>
