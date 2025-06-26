@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { AngorProject, ProjectFilters } from '@/types/angor';
+import { useDenyList, filterDeniedProjects } from '@/services/denyService';
 
 interface FilteredProjectsResult {
   projects: AngorProject[];
@@ -18,8 +19,11 @@ export function useFilteredAngorProjects(
   allProjects: AngorProject[],
   filters: ProjectFilters
 ): FilteredProjectsResult {
+  const denyService = useDenyList();
+  
   return useMemo(() => {
-    let filteredProjects = [...allProjects];
+    // First filter out denied projects
+    let filteredProjects = filterDeniedProjects(allProjects, denyService);
 
     // Apply search filter
     if (filters.search) {
@@ -83,5 +87,5 @@ export function useFilteredAngorProjects(
       statistics,
       count: filteredProjects.length
     };
-  }, [allProjects, filters]);
+  }, [allProjects, filters, denyService]);
 }

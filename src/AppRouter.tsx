@@ -4,6 +4,7 @@ import { AngorLayout } from "./components/AngorLayout";
 import HomePage from "./pages/HomePage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
+import { ProjectDebugPage } from "./pages/ProjectDebugPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TrendingPage } from "./pages/TrendingPage";
@@ -20,6 +21,7 @@ export function AppRouter() {
           <Route path="/" element={<HomePage />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/project/:projectId/debug" element={<ProjectDebugPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/trending" element={<TrendingPage />} />
           <Route path="/profile" element={<ProfilePage />} />

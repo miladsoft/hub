@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useAngorProjects } from '@/hooks/useAngorData';
 import { useCurrentIndexer } from '@/hooks/useCurrentIndexer';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LoadingProgress } from '@/components/LoadingProgress';
+import { useDenyList } from '@/services/denyService';
 
 export function DebugPage() {
   const { network, setNetwork } = useNetwork();
@@ -14,8 +15,11 @@ export function DebugPage() {
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [apiTestResult, setApiTestResult] = useState<string>('');
   
+  // Get deny service
+  const denyService = useDenyList();
+  
   const { 
-    projects, 
+    projects: rawProjects, 
     isLoading, 
     error, 
     progress 
@@ -23,6 +27,27 @@ export function DebugPage() {
     limit: 10,
     enableAutoRefresh: false 
   });
+
+  // Filter out denied projects
+  const projects = useMemo(() => {
+    const filtered = rawProjects.filter(project => {
+      if (!project.project?.projectIdentifier) {
+        console.log('⚠️ Project without identifier found, keeping it');
+        return true;
+      }
+      
+      const isDenied = denyService.isDenied(project.project.projectIdentifier);
+      if (isDenied) {
+        console.log(`🚫 Filtering out denied project: ${project.project.projectIdentifier}`);
+      }
+      return !isDenied;
+    });
+    
+    if (rawProjects.length !== filtered.length) {
+      addDebugInfo(`🚫 Filtered ${rawProjects.length - filtered.length} denied projects out of ${rawProjects.length} total`);
+    }
+    return filtered;
+  }, [rawProjects, denyService]);
 
   const addDebugInfo = (info: string) => {
     setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`]);

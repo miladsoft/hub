@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useAngorProjects } from '@/hooks/useAngorProjects';
 import { useIndexerCacheInvalidation } from '@/hooks/useIndexerCacheInvalidation';
+import { useDenyList, filterDeniedProjects } from '@/services/denyService';
 import type { FilterType, SortType, NostrProfile } from '@/types/angor';
 
 export function ExplorePage() {
@@ -50,6 +51,9 @@ export function ExplorePage() {
     refetchInterval: 30000
   });
 
+  // Deny list service
+  const denyService = useDenyList();
+
   // Automatically invalidate cache when indexer changes
   useIndexerCacheInvalidation();
 
@@ -64,7 +68,8 @@ export function ExplorePage() {
 
   // Filter and sort projects
   const filteredProjects = useCallback(() => {
-    let filtered = [...allProjects];
+    // First filter out denied projects
+    let filtered = filterDeniedProjects(allProjects, denyService);
     const search = searchTerm.toLowerCase().trim();
 
     // Apply search filter
@@ -144,7 +149,7 @@ export function ExplorePage() {
     }
 
     return filtered;
-  }, [allProjects, searchTerm, activeFilter, activeSort]);
+  }, [allProjects, searchTerm, activeFilter, activeSort, denyService]);
 
   const projects = filteredProjects();
 

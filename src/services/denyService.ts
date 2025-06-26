@@ -1,335 +1,210 @@
-import type { NetworkType } from '@/contexts/NetworkContext';
+import { useQuery } from '@tanstack/react-query';
 
-export interface DenyListEntry {
-  id: string;
-  type: 'project' | 'user' | 'event';
-  reason: string;
-  timestamp: number;
-  network: NetworkType;
+// CORS proxy URLs - try multiple proxies for reliability
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://cors-anywhere.herokuapp.com/',
+  'https://api.allorigins.win/raw?url=',
+];
+
+// API URLs
+const DENY_LIST_URL = 'https://lists.blockcore.net/deny/angor.json';
+const DENY_LIST_PROXY_URL = '/api/deny/angor.json'; // Vite proxy URL
+
+interface DenyListService {
+  isDenied: (projectIdentifier: string) => boolean;
+  isLoading: boolean;
+  error: Error | null;
 }
 
-export interface DenyListConfig {
-  enabled: boolean;
-  sources: Array<{
-    url: string;
-    enabled: boolean;
-    priority: number;
-  }>;
-  customEntries: DenyListEntry[];
-}
+function useDenyList(): DenyListService {
+  const { data: denyList = [], isLoading, error } = useQuery({
+    queryKey: ['denyList'],
+    queryFn: async (): Promise<string[]> => {
+      // Hardcoded fallback list based on the actual deny list
+      const fallbackDenyList = [
+        'angor1qfs3835r3r8leha9ksnrf8jadvtyzwuzu7huqk9',
+        'angor1q748m7hqu5d7h58zyxvl6gvz4hhaptg5kez6r7f', 
+        'angor1q2a5m2zcwpmkh49z05pg6gd9cxm4dhx3ywfclem'
+      ];
 
-export class DenyService {
-  private denyList: Set<string> = new Set();
-  private config: DenyListConfig;
-  private lastUpdate: number = 0;
-  private updateInterval = 60 * 60 * 1000; // 1 hour
-
-  constructor() {
-    this.config = this.loadConfig();
-    this.loadDenyList();
-  }
-
-  /**
-   * Load configuration from localStorage
-   */
-  private loadConfig(): DenyListConfig {
-    const saved = localStorage.getItem('angor:deny-config');
-    if (saved) {
       try {
-        return JSON.parse(saved);
-      } catch (error) {
-        console.error('Failed to parse deny list config:', error);
-      }
-    }
-    
-    return {
-      enabled: true,
-      sources: [
-        {
-          url: 'https://lists.blockcore.net/deny/angor.json',
-          enabled: true,
-          priority: 1
-        }
-      ],
-      customEntries: []
-    };
-  }
-
-  /**
-   * Save configuration to localStorage
-   */
-  private saveConfig(): void {
-    localStorage.setItem('angor:deny-config', JSON.stringify(this.config));
-  }
-
-  /**
-   * Load deny list from all enabled sources
-   */
-  async loadDenyList(): Promise<void> {
-    if (!this.config.enabled) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - this.lastUpdate < this.updateInterval) {
-      // Use cached version
-      const cached = localStorage.getItem('angor:deny-list');
-      if (cached) {
-        try {
-          const entries: string[] = JSON.parse(cached);
-          this.denyList = new Set(entries);
-          return;
-        } catch (error) {
-          console.error('Failed to parse cached deny list:', error);
-        }
-      }
-    }
-
-    // Fetch from remote sources
-    const allEntries = new Set<string>();
-
-    // Add custom entries
-    this.config.customEntries.forEach(entry => {
-      allEntries.add(entry.id);
-    });
-
-    // Fetch from remote sources
-    for (const source of this.config.sources.filter(s => s.enabled)) {
-      try {
-        const response = await fetch(source.url, {
-          signal: AbortSignal.timeout(10000)
-        });
+        console.log('🚫 Fetching deny list...');
         
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            data.forEach(id => allEntries.add(id));
-          } else if (data.entries && Array.isArray(data.entries)) {
-            data.entries.forEach((entry: any) => {
-              if (typeof entry === 'string') {
-                allEntries.add(entry);
-              } else if (entry.id) {
-                allEntries.add(entry.id);
+        // Try proxy URL first (for development)
+        let response;
+        try {
+          console.log('🔄 Trying proxy URL:', DENY_LIST_PROXY_URL);
+          response = await fetch(DENY_LIST_PROXY_URL, { 
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          });
+          
+          if (response.ok) {
+            console.log('✅ Proxy URL worked!');
+          }
+        } catch (proxyError) {
+          console.warn('❌ Proxy URL failed, trying direct fetch...', proxyError);
+          
+          // Try direct fetch
+          try {
+            response = await fetch(DENY_LIST_URL, { 
+              mode: 'cors',
+              cache: 'no-store',
+              headers: {
+                'Cache-Control': 'no-cache'
               }
             });
+            
+            if (response.ok) {
+              console.log('✅ Direct fetch worked!');
+            }
+          } catch (corsError) {
+            console.warn('❌ Direct fetch failed due to CORS, trying proxies...', corsError);
+            
+            // Try CORS proxies one by one
+            for (const proxy of CORS_PROXIES) {
+              try {
+                console.log(`🔄 Trying proxy: ${proxy}`);
+                response = await fetch(proxy + encodeURIComponent(DENY_LIST_URL), {
+                  cache: 'no-store',
+                  headers: {
+                    'Cache-Control': 'no-cache'
+                  }
+                });
+                if (response.ok) {
+                  console.log(`✅ Proxy ${proxy} worked!`);
+                  break;
+                }
+              } catch (proxyError) {
+                console.warn(`❌ Proxy ${proxy} failed:`, proxyError);
+                continue;
+              }
+            }
           }
         }
+        
+        if (!response || !response.ok) {
+          console.warn('❌ Failed to fetch deny list from all sources, using fallback list');
+          return fallbackDenyList;
+        }
+        
+        const list = await response.json();
+        
+        if (!Array.isArray(list)) {
+          console.error('❌ Deny list format is incorrect, using fallback list');
+          return fallbackDenyList;
+        }
+        
+        console.log('✅ Deny list loaded successfully:', list.length, 'entries');
+        console.log('🚫 Full deny list:', list);
+        
+        // Log each denied project ID separately for clarity
+        console.log('📋 DENIED PROJECTS LIST:');
+        list.forEach((projectId, index) => {
+          console.log(`   ${index + 1}. ${projectId}`);
+        });
+        
+        return list;
+        
       } catch (error) {
-        console.warn(`Failed to fetch deny list from ${source.url}:`, error);
+        console.error('❌ Error loading deny list, using fallback list:', error);
+        console.log('📋 USING FALLBACK DENIED PROJECTS LIST:');
+        fallbackDenyList.forEach((projectId, index) => {
+          console.log(`   ${index + 1}. ${projectId}`);
+        });
+        return fallbackDenyList;
       }
-    }
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 3,
+    refetchOnWindowFocus: false,
+  });
 
-    this.denyList = allEntries;
-    this.lastUpdate = now;
-
-    // Cache the results
-    localStorage.setItem('angor:deny-list', JSON.stringify(Array.from(allEntries)));
-    localStorage.setItem('angor:deny-list-timestamp', now.toString());
-  }
-
-  /**
-   * Check if an event/project/user is denied
-   */
-  async isEventDenied(id: string): Promise<boolean> {
-    if (!this.config.enabled) {
+  const isDenied = (projectIdentifier: string): boolean => {
+    if (!projectIdentifier || !denyList.length) {
       return false;
     }
-
-    // Ensure deny list is loaded
-    if (this.denyList.size === 0) {
-      await this.loadDenyList();
-    }
-
-    return this.denyList.has(id);
-  }
-
-  /**
-   * Check if a project is denied
-   */
-  async isProjectDenied(projectId: string): Promise<boolean> {
-    return this.isEventDenied(projectId);
-  }
-
-  /**
-   * Check if a user is denied
-   */
-  async isUserDenied(pubkey: string): Promise<boolean> {
-    return this.isEventDenied(pubkey);
-  }
-
-  /**
-   * Add custom deny entry
-   */
-  addCustomEntry(entry: Omit<DenyListEntry, 'timestamp'>): void {
-    const newEntry: DenyListEntry = {
-      ...entry,
-      timestamp: Date.now()
-    };
     
-    this.config.customEntries.push(newEntry);
-    this.denyList.add(entry.id);
-    this.saveConfig();
-  }
-
-  /**
-   * Remove custom deny entry
-   */
-  removeCustomEntry(id: string): boolean {
-    const index = this.config.customEntries.findIndex(entry => entry.id === id);
-    if (index === -1) return false;
-
-    this.config.customEntries.splice(index, 1);
-    this.denyList.delete(id);
-    this.saveConfig();
-    return true;
-  }
-
-  /**
-   * Get all custom entries
-   */
-  getCustomEntries(): DenyListEntry[] {
-    return [...this.config.customEntries];
-  }
-
-  /**
-   * Enable/disable deny service
-   */
-  setEnabled(enabled: boolean): void {
-    this.config.enabled = enabled;
-    this.saveConfig();
-  }
-
-  /**
-   * Check if deny service is enabled
-   */
-  isEnabled(): boolean {
-    return this.config.enabled;
-  }
-
-  /**
-   * Add a new source
-   */
-  addSource(url: string, priority: number = 1): boolean {
-    if (this.config.sources.some(source => source.url === url)) {
-      return false; // Already exists
-    }
-
-    this.config.sources.push({
-      url,
-      enabled: true,
-      priority
-    });
-
-    this.saveConfig();
-    return true;
-  }
-
-  /**
-   * Remove a source
-   */
-  removeSource(url: string): boolean {
-    const index = this.config.sources.findIndex(source => source.url === url);
-    if (index === -1) return false;
-
-    this.config.sources.splice(index, 1);
-    this.saveConfig();
-    return true;
-  }
-
-  /**
-   * Enable/disable a source
-   */
-  setSourceEnabled(url: string, enabled: boolean): boolean {
-    const source = this.config.sources.find(s => s.url === url);
-    if (!source) return false;
-
-    source.enabled = enabled;
-    this.saveConfig();
-    return true;
-  }
-
-  /**
-   * Get current configuration
-   */
-  getConfig(): DenyListConfig {
-    return { ...this.config };
-  }
-
-  /**
-   * Update configuration
-   */
-  updateConfig(config: Partial<DenyListConfig>): void {
-    this.config = { ...this.config, ...config };
-    this.saveConfig();
-  }
-
-  /**
-   * Force refresh deny list from all sources
-   */
-  async refresh(): Promise<void> {
-    this.lastUpdate = 0; // Force refresh
-    await this.loadDenyList();
-  }
-
-  /**
-   * Get deny list statistics
-   */
-  getStats(): {
-    totalEntries: number;
-    customEntries: number;
-    lastUpdate: number;
-    sources: number;
-    enabledSources: number;
-  } {
-    return {
-      totalEntries: this.denyList.size,
-      customEntries: this.config.customEntries.length,
-      lastUpdate: this.lastUpdate,
-      sources: this.config.sources.length,
-      enabledSources: this.config.sources.filter(s => s.enabled).length
-    };
-  }
-
-  /**
-   * Clear all cached data
-   */
-  clearCache(): void {
-    localStorage.removeItem('angor:deny-list');
-    localStorage.removeItem('angor:deny-list-timestamp');
-    this.denyList.clear();
-    this.lastUpdate = 0;
-  }
-
-  /**
-   * Export deny list configuration
-   */
-  exportConfig(): string {
-    return JSON.stringify(this.config, null, 2);
-  }
-
-  /**
-   * Import deny list configuration
-   */
-  importConfig(configJson: string): boolean {
-    try {
-      const config = JSON.parse(configJson) as DenyListConfig;
+    // Special test for the specific project ID
+    const testProjectId = 'angor1q2a5m2zcwpmkh49z05pg6gd9cxm4dhx3ywfclem';
+    if (projectIdentifier === testProjectId) {
+      console.log(`🔍 Testing specific project: ${projectIdentifier}`);
+      console.log(`🔍 Current deny list (${denyList.length} items):`, denyList);
+      console.log(`🔍 Is "${projectIdentifier}" in deny list:`, denyList.includes(projectIdentifier));
       
-      // Validate config structure
-      if (!config.sources || !Array.isArray(config.sources)) {
-        throw new Error('Invalid configuration: missing sources array');
-      }
-      
-      if (!config.customEntries || !Array.isArray(config.customEntries)) {
-        throw new Error('Invalid configuration: missing customEntries array');
-      }
-
-      this.config = config;
-      this.saveConfig();
-      this.clearCache(); // Force reload
-      return true;
-    } catch (error) {
-      console.error('Failed to import configuration:', error);
-      return false;
+      // Check each item individually for debugging
+      console.log('🔍 Checking each deny list item:');
+      denyList.forEach((deniedId, index) => {
+        const matches = deniedId === projectIdentifier;
+        console.log(`   ${index + 1}. "${deniedId}" === "${projectIdentifier}" ? ${matches}`);
+      });
     }
-  }
+    
+    const denied = denyList.includes(projectIdentifier);
+    if (denied) {
+      console.warn(`🚫 Project ${projectIdentifier} is denied and will be filtered out`);
+    }
+    
+    return denied;
+  };
+
+  return {
+    isDenied,
+    isLoading,
+    error: error as Error | null,
+  };
 }
+
+function filterDeniedProjects<T extends { projectIdentifier?: string }>(
+  projects: T[],
+  denyService: DenyListService
+): T[] {
+  if (!projects.length) {
+    return projects;
+  }
+
+  if (denyService.isLoading) {
+    console.log('🔄 Deny list still loading, showing all projects for now...');
+    return projects;
+  }
+
+  const filtered = projects.filter(project => {
+    if (!project.projectIdentifier) {
+      console.log('⚠️ Project without identifier found, keeping it');
+      return true;
+    }
+    
+    // Extra logging for our specific test project
+    const testProjectId = 'angor1q2a5m2zcwpmkh49z05pg6gd9cxm4dhx3ywfclem';
+    if (project.projectIdentifier === testProjectId) {
+      console.log(`🔥 FOUND TEST PROJECT IN FILTER: ${project.projectIdentifier}`);
+      console.log(`🔥 denyService.isLoading: ${denyService.isLoading}`);
+      console.log(`🔥 About to call isDenied...`);
+    }
+    
+    const isDenied = denyService.isDenied(project.projectIdentifier);
+    
+    if (project.projectIdentifier === testProjectId) {
+      console.log(`🔥 isDenied result for test project: ${isDenied}`);
+    }
+    
+    if (isDenied) {
+      console.log(`🚫 Filtering out denied project: ${project.projectIdentifier}`);
+    }
+    
+    return !isDenied;
+  });
+
+  if (projects.length !== filtered.length) {
+    console.log(`✅ Filtered ${projects.length - filtered.length} denied projects out of ${projects.length} total`);
+  }
+  
+  return filtered;
+}
+
+export { useDenyList, filterDeniedProjects };
+export type { DenyListService };

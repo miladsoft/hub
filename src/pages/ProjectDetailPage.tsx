@@ -24,7 +24,36 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
 import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates, useNostrProjectByEventId } from '@/services/nostrService';
 import { useIndexerProject } from '@/hooks/useIndexerProject';
+import { useDenyList } from '@/services/denyService';
 import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
+
+// Helper functions outside of component to avoid React hooks issues
+const formatBTC = (sats: number | undefined) => {
+  if (!sats) return '0.00000000 BTC';
+  return `${(sats / 100000000).toFixed(8)} BTC`;
+};
+
+const formatAmount = (amount: number | undefined) => {
+  if (!amount || amount === 0) return '0';
+  if (amount >= 1000000) {
+    return `${(amount / 1000000).toFixed(1)}M`;
+  }
+  if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(1)}K`;
+  }
+  return amount.toString();
+};
+
+const safeFormatDistanceToNow = (timestamp: number | undefined) => {
+  if (!timestamp || timestamp <= 0) return 'Unknown time';
+  try {
+    const date = new Date(timestamp * 1000);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch {
+    return 'Invalid date';
+  }
+};
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -33,7 +62,10 @@ export function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [investmentAmount, setInvestmentAmount] = useState('');
 
-  // Fetch project data
+  // Check if project is denied - Always call hooks first
+  const denyService = useDenyList();
+
+  // Fetch project data - All hooks must be called before any conditional logic
   const { data: project, isLoading: projectLoading } = useAngorProject(projectId);
   const { data: stats, isLoading: statsLoading } = useAngorProjectStats(projectId);
   const { data: investments, isLoading: investmentsLoading } = useAngorProjectInvestments(projectId);
@@ -50,36 +82,16 @@ export function ProjectDetailPage() {
   const { data: projectMetadata } = useProjectMetadata(nostrPubKey);
   const { data: additionalData } = useNostrAdditionalData(nostrPubKey);
   const { data: updates } = useProjectUpdates(projectId);
-
-  // Extract profile data from projectMetadata with type safety
+  
+  // Extract profile data from projectMetadata with type safety - Must be before early returns
   const profile = projectMetadata?.profile as NostrProfile | undefined;
   const projectData = projectMetadata?.project as ProjectMetadata | undefined;
   const mediaData = projectMetadata?.media as ProjectMedia | undefined;
-
-  // Type-safe helper to check if media has gallery
-  const hasGallery = (media: unknown): media is ProjectMedia & { gallery: NonNullable<ProjectMedia['gallery']> } => {
-    return media != null && 
-           typeof media === 'object' && 
-           'gallery' in media && 
-           Array.isArray((media as ProjectMedia).gallery) && 
-           (media as ProjectMedia).gallery!.length > 0;
-  };
-
-  // Get gallery items from either source with type safety
-  const getGalleryItems = () => {
-    if (hasGallery(mediaData)) {
-      return mediaData.gallery;
-    }
-    if (additionalData?.media && hasGallery(additionalData.media)) {
-      return additionalData.media.gallery;
-    }
-    return [];
-  };
-
+  
   // Debug logging - Enhanced for Nostr project data and indexer data
   useEffect(() => {
     console.log('🔍 ProjectDetailPage - Debug Info for project:', projectId);
-    console.log('📊 Project data:', project);
+    console.log('� Project data:', project);
     console.log('📈 Stats data:', stats);
     console.log('🏛️ Indexer project data:', indexerProject);
     console.log('🆔 Event ID found:', eventId);
@@ -111,6 +123,40 @@ export function ProjectDetailPage() {
       console.log('🔑 Indexer nostrPubKey:', indexerProject.nostrPubKey);
     }
   }, [projectId, project, stats, indexerProject, eventId, nostrProjectData, nostrPubKey, projectMetadata, profile, projectData, mediaData, additionalData]);
+  
+  // If project is denied, redirect to home or show error
+  useEffect(() => {
+    if (projectId && denyService.isDenied(projectId)) {
+      console.warn(`🚫 Access denied to project: ${projectId}`);
+      navigate('/', { replace: true });
+      return;
+    }
+  }, [projectId, denyService, navigate]);
+
+  // Don't render anything if project is denied
+  if (projectId && denyService.isDenied(projectId)) {
+    return null;
+  }
+
+  // Type-safe helper to check if media has gallery
+  const hasGallery = (media: unknown): media is ProjectMedia & { gallery: NonNullable<ProjectMedia['gallery']> } => {
+    return media != null && 
+           typeof media === 'object' && 
+           'gallery' in media && 
+           Array.isArray((media as ProjectMedia).gallery) && 
+           (media as ProjectMedia).gallery!.length > 0;
+  };
+
+  // Get gallery items from either source with type safety
+  const getGalleryItems = () => {
+    if (hasGallery(mediaData)) {
+      return mediaData.gallery;
+    }
+    if (additionalData?.media && hasGallery(additionalData.media)) {
+      return additionalData.media.gallery;
+    }
+    return [];
+  };
 
   const isLoading = projectLoading || statsLoading || investmentsLoading;
 
@@ -121,33 +167,6 @@ export function ProjectDetailPage() {
   if (!project || !stats) {
     return <ProjectNotFound />;
   }
-
-  const formatBTC = (sats: number | undefined) => {
-    if (!sats) return '0.00000000 BTC';
-    return `${(sats / 100000000).toFixed(8)} BTC`;
-  };
-
-  const formatAmount = (amount: number | undefined) => {
-    if (!amount || amount === 0) return '0';
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
-    }
-    return amount.toString();
-  };
-
-  const safeFormatDistanceToNow = (timestamp: number | undefined) => {
-    if (!timestamp || timestamp <= 0) return 'Unknown time';
-    try {
-      const date = new Date(timestamp * 1000);
-      if (isNaN(date.getTime())) return 'Invalid date';
-      return formatDistanceToNow(date, { addSuffix: true });
-    } catch {
-      return 'Invalid date';
-    }
-  };
 
   // Safe data extraction with fallbacks from all sources
   const completionPercentage = Math.min(stats?.completionPercentage || 0, 100);

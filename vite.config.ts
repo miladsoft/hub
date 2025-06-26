@@ -10,6 +10,15 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1000,
   },
+  server: {
+    proxy: {
+      '/api/deny': {
+        target: 'https://lists.blockcore.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/deny/, '/deny')
+      }
+    }
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
