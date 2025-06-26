@@ -171,7 +171,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
             {/* Login Section */}
             <Button 
               onClick={() => setShowLogin(true)}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium h-11"
+              className="w-full bg-[#086c81] hover:bg-[#054e5a] text-white font-medium h-11 transition-all duration-200"
             >
               <User className="w-4 h-4 mr-2" />
               Sign in with Nostr
