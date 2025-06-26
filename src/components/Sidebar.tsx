@@ -112,13 +112,9 @@ export function Sidebar({ className = '' }: SidebarProps) {
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-medium truncate flex-1">{userDisplayName}</p>
-                  <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-gradient-to-r from-accent/20 to-primary/20 text-primary border-primary/30 flex-shrink-0">
-                    <Bitcoin className="w-3 h-3 mr-1" />
-                    Creator
-                  </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Verified Creator
+                  Verified User
                 </p>
               </div>
               
@@ -133,10 +129,6 @@ export function Sidebar({ className = '' }: SidebarProps) {
                     <div className="flex flex-col space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium">{userDisplayName}</p>
-                        <Badge variant="secondary" className="text-xs bg-gradient-to-r from-accent/20 to-primary/20 text-primary border-primary/30">
-                          <Bitcoin className="w-3 h-3 mr-1" />
-                          Creator
-                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {user.pubkey.slice(0, 16)}...
@@ -147,10 +139,6 @@ export function Sidebar({ className = '' }: SidebarProps) {
                   <DropdownMenuItem onClick={() => navigate('/profile')}>
                     <User className="w-4 h-4 mr-2" />
                     Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/creator')}>
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Creator Dashboard
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/settings')}>
                     <Settings className="w-4 h-4 mr-2" />

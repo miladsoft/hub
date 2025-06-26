@@ -12,9 +12,6 @@ import {
   User, 
   Edit, 
   Shield, 
-  Music, 
-  Heart, 
-  Upload, 
   Copy, 
   Check,
   Camera,
@@ -126,9 +123,8 @@ export function ProfilePage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="music">Music</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
           </TabsList>
 
@@ -269,65 +265,6 @@ export function ProfilePage() {
                     )}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Music Tab */}
-          <TabsContent value="music" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                      <Music className="w-6 h-6 text-purple-500" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">142</p>
-                      <p className="text-sm text-muted-foreground">Tracks Uploaded</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
-                      <Heart className="w-6 h-6 text-red-500" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">89</p>
-                      <p className="text-sm text-muted-foreground">Liked Songs</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <Upload className="w-6 h-6 text-green-500" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">1.2k</p>
-                      <p className="text-sm text-muted-foreground">Total Plays</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Uploads</CardTitle>
-                <CardDescription>Your latest music submissions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  No music uploads yet. Start sharing your music!
-                </p>
               </CardContent>
             </Card>
           </TabsContent>
