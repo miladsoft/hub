@@ -7,8 +7,8 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ZapForm } from '@/components/ZapForm';
 import { 
   ArrowLeft, 
   Share2,
@@ -18,7 +18,9 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  Users
+  Users,
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
@@ -58,7 +60,6 @@ export function ProjectDetailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
-  const [investmentAmount, setInvestmentAmount] = useState('');
 
   // Get network and settings for currency formatting
   const { network } = useNetwork();
@@ -389,36 +390,50 @@ export function ProjectDetailPage() {
           )}
         </div>
 
-        {/* Investment Sidebar */}
+        {/* Investment/Zap Actions Sidebar */}
         <div className="lg:col-span-1">
           <Card className="sticky top-8">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Bitcoin className="h-5 w-5 text-orange-500" />
-                <span>Invest in Project</span>
+                <span>Support Project</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {(stats?.status === 'active' || !stats?.status) ? (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Investment Amount (BTC)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.00000001"
-                      placeholder="0.00000000"
-                      value={investmentAmount}
-                      onChange={(e) => setInvestmentAmount(e.target.value)}
-                    />
-                    <div className="text-xs text-muted-foreground">
-                      Minimum: 0.00001 BTC
-                    </div>
-                  </div>
-
-                  <Button className="w-full bg-orange-600 hover:bg-orange-700">
+                  {/* Invest Button */}
+                  <Button 
+                    size="lg"
+                    className="w-full"
+                    onClick={() => {
+                      const baseUrl = network === 'mainnet' ? 'https://beta.angor.io' : 'https://test.angor.io';
+                      const investUrl = `${baseUrl}/view/${projectId}`;
+                      window.open(investUrl, '_blank');
+                    }}
+                  >
+                    <Bitcoin className="h-5 w-5 mr-2" />
                     Invest Now
+                    <ExternalLink className="h-4 w-4 ml-2" />
                   </Button>
+
+                  {/* Zap Button */}
+                  {profile?.lud16 && (
+                    <ZapForm
+                      zapAddress={profile.lud16}
+                      recipientName={profile.name || profile.display_name || 'Project'}
+                      trigger={
+                        <Button 
+                          variant="outline" 
+                          size="lg"
+                          className="w-full"
+                        >
+                          <Zap className="h-5 w-5 mr-2" />
+                          Send Zap ⚡
+                        </Button>
+                      }
+                    />
+                  )}
 
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="flex items-center space-x-1">
@@ -433,6 +448,12 @@ export function ProjectDetailPage() {
                       <CheckCircle className="h-3 w-3 text-green-500" />
                       <span>Refund protection</span>
                     </div>
+                    {profile?.lud16 && (
+                      <div className="flex items-center space-x-1">
+                        <CheckCircle className="h-3 w-3 text-yellow-500" />
+                        <span>Lightning zaps available</span>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -442,6 +463,25 @@ export function ProjectDetailPage() {
                   <div className="text-sm text-muted-foreground">
                     This project is no longer accepting investments
                   </div>
+                  {/* Still show zap option if available */}
+                  {profile?.lud16 && (
+                    <div className="mt-4">
+                      <ZapForm
+                        zapAddress={profile.lud16}
+                        recipientName={profile.name || profile.display_name || 'Project'}
+                        trigger={
+                          <Button 
+                            variant="outline" 
+                            size="lg"
+                            className="w-full"
+                          >
+                            <Zap className="h-5 w-5 mr-2" />
+                            Send Zap ⚡
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

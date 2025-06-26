@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AngorProjectCard } from '@/components/AngorProjectCard';
 import { ProjectsStatistics } from '@/components/ProjectsStatistics';
@@ -22,7 +22,7 @@ import {
 import { useAngorProjects } from '@/hooks/useAngorProjects';
 import { useIndexerCacheInvalidation } from '@/hooks/useIndexerCacheInvalidation';
 import { useDenyList, filterDeniedProjects } from '@/services/denyService';
-import type { FilterType, SortType, NostrProfile } from '@/types/angor';
+import type { FilterType, SortType, AngorProject } from '@/types/angor';
 
 export function ExplorePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,7 +45,8 @@ export function ExplorePage() {
     loadMore,
     hasNextPage,
     isFetchingNextPage,
-    isComplete
+    isComplete,
+    error
   } = useAngorProjects({ 
     enabled: true
     // Remove automatic refetch - user can manually refresh if needed
@@ -71,52 +72,159 @@ export function ExplorePage() {
     setSearchParams(params, { replace: true });
   }, [searchTerm, activeFilter, activeSort, setSearchParams]);
 
-  // Filter and sort projects
-  const filteredProjects = useCallback(() => {
+  // Filter and sort projects with improved search logic
+  const filteredProjects = useMemo(() => {
     // Start with already filtered projects (denied projects removed)
     let filtered = allProjectsFiltered;
     const search = searchTerm.toLowerCase().trim();
 
-    // Apply search filter
+    // Debug logging for initial state
+    console.log('🔍 Filter Debug - Starting:', {
+      totalProjects: allProjectsFiltered.length,
+      searchTerm: search,
+      activeFilter,
+      activeSort,
+      isLoading,
+      hasProjects: allProjectsFiltered.length > 0,
+      sampleProject: allProjectsFiltered[0] ? {
+        id: allProjectsFiltered[0].projectIdentifier,
+        name: allProjectsFiltered[0].metadata?.name || allProjectsFiltered[0].profile?.name,
+        about: allProjectsFiltered[0].metadata?.about || allProjectsFiltered[0].profile?.about,
+        hasMetadata: !!allProjectsFiltered[0].metadata,
+        hasProfile: !!allProjectsFiltered[0].profile,
+        hasStats: !!allProjectsFiltered[0].stats,
+        hasDetails: !!allProjectsFiltered[0].details
+      } : 'No projects available'
+    });
+
+    // Apply search filter with comprehensive field checking
     if (search) {
+      const beforeSearchCount = filtered.length;
       filtered = filtered.filter(project => {
-        const metadata = project.metadata || project.profile;
-        const profile = metadata as NostrProfile;
-        const name = profile?.name || profile?.display_name || '';
-        const about = profile?.about || '';
+        // Check all possible name sources
+        const projectName = project.metadata?.name || 
+                           project.profile?.name || 
+                           project.profile?.display_name || 
+                           '';
+        
+        // Check all possible description sources
+        const projectDescription = project.metadata?.about || 
+                                  project.profile?.about || 
+                                  '';
+        
+        // Check identifier
         const identifier = project.projectIdentifier || '';
         
-        return (
-          name.toLowerCase().includes(search) ||
-          about.toLowerCase().includes(search) ||
-          identifier.toLowerCase().includes(search)
+        // Check category
+        const category = project.metadata?.category || '';
+        
+        // Check tags
+        const tags = project.metadata?.tags?.join(' ') || '';
+        
+        // Check website
+        const website = project.metadata?.website || '';
+        
+        // Check founder key (partial match)
+        const founderKey = project.founderKey || '';
+        
+        const matches = (
+          projectName.toLowerCase().includes(search) ||
+          projectDescription.toLowerCase().includes(search) ||
+          identifier.toLowerCase().includes(search) ||
+          category.toLowerCase().includes(search) ||
+          tags.toLowerCase().includes(search) ||
+          website.toLowerCase().includes(search) ||
+          founderKey.toLowerCase().includes(search)
         );
+
+        // Debug individual project matching
+        if (process.env.NODE_ENV === 'development' && search.length > 2) {
+          console.log(`🔍 Search test for "${search}" in project ${identifier}:`, {
+            projectName: projectName || 'empty',
+            projectDescription: projectDescription || 'empty',
+            identifier: identifier || 'empty',
+            category: category || 'empty',
+            matches,
+            nameMatch: projectName.toLowerCase().includes(search),
+            descMatch: projectDescription.toLowerCase().includes(search),
+            idMatch: identifier.toLowerCase().includes(search)
+          });
+        }
+
+        return matches;
+      });
+      
+      console.log('🔍 After search filter:', {
+        searchTerm: search,
+        beforeCount: beforeSearchCount,
+        afterCount: filtered.length,
+        filteredOut: beforeSearchCount - filtered.length
       });
     }
 
-    // Apply status filter
+    // Apply status filter with improved logic
     if (activeFilter !== 'all') {
+      const beforeFilterCount = filtered.length;
       filtered = filtered.filter(project => {
         const now = Date.now() / 1000;
         const startDate = project.details?.startDate;
         const expiryDate = project.details?.expiryDate;
         const stats = project.stats;
+        const completionPercentage = stats?.completionPercentage || 0;
+        
+        let shouldInclude = false;
         
         switch (activeFilter) {
           case 'active':
-            return (!startDate || startDate <= now) && 
-                   (!expiryDate || expiryDate > now) && 
-                   (!stats || stats.completionPercentage < 100);
+            // Active: Project has started and not expired and not fully funded
+            const hasStarted = !startDate || startDate <= now;
+            const notExpired = !expiryDate || expiryDate > now;
+            const notCompleted = completionPercentage < 100;
+            shouldInclude = hasStarted && notExpired && notCompleted;
+            break;
+            
           case 'upcoming':
-            return startDate && startDate > now;
+            // Upcoming: Project hasn't started yet
+            shouldInclude = startDate ? startDate > now : false;
+            break;
+            
           case 'completed':
-            return stats && stats.completionPercentage >= 100;
+            // Completed: Project is fully funded (100% or more)
+            shouldInclude = completionPercentage >= 100;
+            break;
+            
           case 'expired':
-            return expiryDate && expiryDate <= now && 
-                   (!stats || stats.completionPercentage < 100);
+            // Expired: Project has expired and not fully funded
+            const hasExpired = expiryDate && expiryDate <= now;
+            const stillNotCompleted = completionPercentage < 100;
+            shouldInclude = Boolean(hasExpired && stillNotCompleted);
+            break;
+            
           default:
-            return true;
+            shouldInclude = true;
         }
+
+        // Debug individual project filtering
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📊 Filter "${activeFilter}" for project ${project.projectIdentifier}:`, {
+            startDate: startDate ? new Date(startDate * 1000).toISOString() : 'none',
+            expiryDate: expiryDate ? new Date(expiryDate * 1000).toISOString() : 'none',
+            completionPercentage,
+            now: new Date(now * 1000).toISOString(),
+            shouldInclude,
+            stats: project.stats ? 'has stats' : 'no stats',
+            details: project.details ? 'has details' : 'no details'
+          });
+        }
+
+        return shouldInclude;
+      });
+      
+      console.log('📊 After status filter:', {
+        filter: activeFilter,
+        beforeCount: beforeFilterCount,
+        afterCount: filtered.length,
+        filteredOut: beforeFilterCount - filtered.length
       });
     }
 
@@ -153,10 +261,27 @@ export function ExplorePage() {
       });
     }
 
-    return filtered;
-  }, [allProjectsFiltered, searchTerm, activeFilter, activeSort]);
+    // Debug logging (only in development)
+    console.log('✅ Final Filter Results:', {
+      searchTerm,
+      activeFilter,
+      activeSort,
+      allProjectsCount: allProjectsFiltered.length,
+      filteredCount: filtered.length,
+      isLoading,
+      hasError: !!error,
+      sampleFilteredProject: filtered[0] ? {
+        name: filtered[0].metadata?.name || filtered[0].profile?.name || 'Unnamed',
+        about: filtered[0].metadata?.about?.substring(0, 50) + '...' || 'No description',
+        identifier: filtered[0].projectIdentifier,
+        amount: filtered[0].stats?.amountInvested || filtered[0].amountInvested || 0
+      } : 'No filtered projects'
+    });
 
-  const projects = filteredProjects();
+    return filtered;
+  }, [allProjectsFiltered, searchTerm, activeFilter, activeSort, isLoading, error]);
+
+  const projects = filteredProjects;
 
 
 
@@ -335,7 +460,23 @@ export function ExplorePage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-20">
-        {isLoading && !allProjectsFiltered.length ? (
+        {error ? (
+          <div className="text-center py-20 max-w-lg mx-auto">
+            <div className="text-red-500 mb-4">
+              <svg className="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-semibold mb-4">Error Loading Projects</h2>
+            <p className="text-muted-foreground mb-8 leading-relaxed">
+              {error.message || 'There was an error loading the projects. Please try again.'}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reload Page
+            </Button>
+          </div>
+        ) : isLoading && !allProjectsFiltered.length ? (
           <div className="flex justify-center items-center py-16">
             <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
           </div>
@@ -365,7 +506,7 @@ export function ExplorePage() {
 
             {/* Projects Grid */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {projects.map((project) => (
+              {projects.map((project: AngorProject) => (
                 <AngorProjectCard
                   key={project.projectIdentifier}
                   project={project}

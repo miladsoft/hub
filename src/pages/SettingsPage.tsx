@@ -557,20 +557,6 @@ export function SettingsPage() {
                   />
                 </div>
 
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive notifications via email (requires email setup)
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => updateSetting('emailNotifications', checked)}
-                  />
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
