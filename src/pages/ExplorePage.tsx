@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AngorProjectCard } from '@/components/AngorProjectCard';
 import { ProjectsStatistics } from '@/components/ProjectsStatistics';
@@ -54,6 +54,11 @@ export function ExplorePage() {
   // Deny list service
   const denyService = useDenyList();
 
+  // Filter out denied projects from all projects for statistics
+  const allProjectsFiltered = useMemo(() => {
+    return filterDeniedProjects(allProjects, denyService);
+  }, [allProjects, denyService]);
+
   // Automatically invalidate cache when indexer changes
   useIndexerCacheInvalidation();
 
@@ -68,8 +73,8 @@ export function ExplorePage() {
 
   // Filter and sort projects
   const filteredProjects = useCallback(() => {
-    // First filter out denied projects
-    let filtered = filterDeniedProjects(allProjects, denyService);
+    // Start with already filtered projects (denied projects removed)
+    let filtered = allProjectsFiltered;
     const search = searchTerm.toLowerCase().trim();
 
     // Apply search filter
@@ -149,7 +154,7 @@ export function ExplorePage() {
     }
 
     return filtered;
-  }, [allProjects, searchTerm, activeFilter, activeSort, denyService]);
+  }, [allProjectsFiltered, searchTerm, activeFilter, activeSort]);
 
   const projects = filteredProjects();
 
@@ -282,7 +287,7 @@ export function ExplorePage() {
               </Select>
 
               <div className="h-11 px-5 flex items-center rounded-lg bg-muted text-muted-foreground text-sm font-medium">
-                {projects.length} of {allProjects.length}
+                {projects.length} of {allProjectsFiltered.length}
               </div>
 
               {hasActiveFilters && (
@@ -342,7 +347,7 @@ export function ExplorePage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-20">
-        {isLoading && !allProjects.length ? (
+        {isLoading && !allProjectsFiltered.length ? (
           <div className="flex justify-center items-center py-16">
             <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
           </div>
@@ -365,7 +370,7 @@ export function ExplorePage() {
           <>
             {/* Enhanced Statistics Overview using new component */}
             <ProjectsStatistics 
-              projects={allProjects} 
+              projects={allProjectsFiltered} 
               filteredProjects={projects}
               isLoading={isLoading}
             />
@@ -403,7 +408,7 @@ export function ExplorePage() {
               <div className="text-center py-20">
                 <div className="text-muted-foreground">
                   <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>You've seen all {allProjects.length} projects!</p>
+                  <p>You've seen all {allProjectsFiltered.length} projects!</p>
                 </div>
               </div>
             )}

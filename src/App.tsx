@@ -38,6 +38,9 @@ const defaultConfig: AppConfig = {
 };
 
 const presetRelays = [
+  { url: 'wss://relay.angor.io', name: 'َAngor' },
+  { url: 'wss://relay2.angor.io', name: 'َAngor2' },
+  { url: 'wss://nos.lol', name: 'nos.lol' },
   { url: 'wss://ditto.pub/relay', name: 'Ditto' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   { url: 'wss://relay.damus.io', name: 'Damus' },

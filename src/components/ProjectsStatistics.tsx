@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Target, TrendingUp, Users, Trophy } from 'lucide-react';
+import { Target, TrendingUp, Users, Globe } from 'lucide-react';
 import type { AngorProject } from '@/types/angor';
 import { useProjectsStatistics } from '@/hooks/useProjectsStatistics';
+import { useNetwork } from '@/contexts/NetworkContext';
 
 interface ProjectsStatisticsProps {
   projects: AngorProject[];
@@ -14,6 +15,9 @@ export function ProjectsStatistics({
   filteredProjects, 
   isLoading = false
 }: ProjectsStatisticsProps) {
+  
+  // Get current network
+  const { network } = useNetwork();
   
   // Use the new hook to get comprehensive statistics
   const statistics = useProjectsStatistics({ 
@@ -86,16 +90,18 @@ export function ProjectsStatistics({
           </CardContent>
         </Card>
 
-        {/* Success Rate */}
+        {/* Current Network */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Network</CardTitle>
+            <Globe className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.successRate.toFixed(1)}%</div>
+            <div className="text-2xl font-bold">
+              {network === 'mainnet' ? 'Mainnet' : 'Testnet'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {statistics.completedProjects} completed
+              Bitcoin {network}
             </p>
           </CardContent>
         </Card>
