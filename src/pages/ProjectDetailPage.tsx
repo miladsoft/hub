@@ -51,11 +51,13 @@ export function ProjectDetailPage() {
     return <ProjectNotFound />;
   }
 
-  const formatBTC = (sats: number) => {
+  const formatBTC = (sats: number | undefined) => {
+    if (!sats) return '0.00000000 BTC';
     return `${(sats / 100000000).toFixed(8)} BTC`;
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: number | undefined) => {
+    if (!amount || amount === 0) return '0';
     if (amount >= 1000000) {
       return `${(amount / 1000000).toFixed(1)}M`;
     }

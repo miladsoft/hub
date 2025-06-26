@@ -16,11 +16,16 @@ export class AngorDataAggregator {
     onProgress?: (current: number, total: number, stage: string) => void
   ): Promise<IndexedProject[]> {
     try {
+      console.log(`🔄 Loading projects for network: ${network}`);
+      
       // Stage 1: Fetch project list
       onProgress?.(0, 100, 'Fetching project list...');
       const projects = await angorIndexer.getProjects(offset, limit, network);
       
+      console.log(`📋 Found ${projects.length} projects from indexer`);
+      
       if (projects.length === 0) {
+        console.log('❌ No projects found');
         return [];
       }
 

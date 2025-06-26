@@ -1,10 +1,17 @@
-import { ANGOR_INDEXER_BASE_URL } from '@/types/angor';
+import { getPrimaryIndexerUrl } from '@/types/angor';
 import type { AngorProject, ProjectStats, ProjectInvestment } from '@/types/angor';
 import type { NetworkType } from '@/contexts/NetworkContext';
 
 export class AngorIndexerService {
   private getBaseUrl(network: NetworkType): string {
-    return ANGOR_INDEXER_BASE_URL[network];
+    // Check if we're in a React context and can access IndexerContext
+    try {
+      // For now, use the helper function. In hooks, we'll use useCurrentIndexer
+      return getPrimaryIndexerUrl(network);
+    } catch {
+      // Fallback if not in React context
+      return getPrimaryIndexerUrl(network);
+    }
   }
 
   /**
@@ -13,24 +20,27 @@ export class AngorIndexerService {
   async getProjects(offset: number = 0, limit: number = 10, network: NetworkType = 'mainnet'): Promise<AngorProject[]> {
     try {
       const baseUrl = this.getBaseUrl(network);
-      const response = await fetch(
-        `${baseUrl}api/query/Angor/projects?offset=${offset}&limit=${limit}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const url = `${baseUrl}api/query/Angor/projects?offset=${offset}&limit=${limit}`;
+      
+      console.log(`🌐 Fetching projects from: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        // Remove Content-Type header to avoid CORS issues
+      });
+
+      console.log(`📡 Response status: ${response.status}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const projects = await response.json();
+      console.log(`✅ Successfully fetched ${Array.isArray(projects) ? projects.length : 0} projects`);
+      
       return Array.isArray(projects) ? projects : [];
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error('❌ Error fetching projects:', error);
       return [];
     }
   }
@@ -45,9 +55,7 @@ export class AngorIndexerService {
         `${baseUrl}api/query/Angor/projects/${projectIdentifier}/stats`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          // Remove Content-Type header to avoid CORS issues
         }
       );
 
@@ -106,9 +114,7 @@ export class AngorIndexerService {
         `${baseUrl}api/query/Angor/projects/${projectIdentifier}/investments`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          // Remove Content-Type header to avoid CORS issues
         }
       );
 
@@ -134,9 +140,7 @@ export class AngorIndexerService {
         `${baseUrl}api/query/Angor/projects/search?q=${encodeURIComponent(query)}&limit=${limit}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          // Remove Content-Type header to avoid CORS issues
         }
       );
 
@@ -166,9 +170,7 @@ export class AngorIndexerService {
         `${baseUrl}api/query/Angor/projects/${projectIdentifier}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          // Remove Content-Type header to avoid CORS issues
         }
       );
 

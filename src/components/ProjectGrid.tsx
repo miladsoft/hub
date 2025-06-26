@@ -1,13 +1,13 @@
-import { ProjectCard } from './ProjectCard';
+import { AngorProjectCard } from './AngorProjectCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Bitcoin } from 'lucide-react';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { Badge } from '@/components/ui/badge';
-import type { IndexedProject } from '@/types/angor';
+import type { AngorProject } from '@/types/angor';
 
 interface ProjectGridProps {
-  projects: IndexedProject[];
+  projects: AngorProject[];
   isLoading?: boolean;
   error?: Error | null;
   className?: string;
@@ -15,7 +15,7 @@ interface ProjectGridProps {
 
 function ProjectSkeleton() {
   return (
-    <Card className="border-l-4 border-l-gray-200">
+    <Card className="hover:shadow-lg transition-shadow">
       <div className="p-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -176,8 +176,8 @@ export function ProjectGrid({
   return (
     <div className={`grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
       {projects.map((project) => (
-        <ProjectCard
-          key={project.project.projectIdentifier}
+        <AngorProjectCard
+          key={project.projectIdentifier}
           project={project}
         />
       ))}

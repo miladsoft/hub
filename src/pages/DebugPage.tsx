@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useAngorProjects } from '@/hooks/useAngorData';
+import { useCurrentIndexer } from '@/hooks/useCurrentIndexer';
 import { angorIndexer } from '@/services/angorIndexer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { LoadingProgress } from '@/components/LoadingProgress';
 
 export function DebugPage() {
   const { network, setNetwork } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const [apiTestResult, setApiTestResult] = useState<string>('');
   
@@ -132,6 +134,7 @@ export function DebugPage() {
         <CardContent>
           <div className="space-y-2">
             <p><strong>Network:</strong> {network}</p>
+            <p><strong>Primary Indexer:</strong> {primaryUrl}</p>
             <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
             <p><strong>Error:</strong> {error ? error.message : 'None'}</p>
             <p><strong>Projects Count:</strong> {projects.length}</p>

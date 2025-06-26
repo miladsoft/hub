@@ -11,6 +11,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NetworkProvider } from '@/contexts/NetworkContext';
+import { IndexerProvider } from '@/contexts/IndexerContext';
+import { RelayProvider } from '@/contexts/RelayContext';
 import AppRouter from './AppRouter';
 import type { AppConfig } from "./contexts/AppContext";
 
@@ -46,21 +48,25 @@ export function App() {
   return (
     <UnheadProvider head={head}>
       <NetworkProvider>
-        <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
-          <QueryClientProvider client={queryClient}>
-            <NostrLoginProvider storageKey='nostr:login'>
-              <NostrProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <Suspense>
-                    <AppRouter />
-                  </Suspense>
-                </TooltipProvider>
-              </NostrProvider>
-            </NostrLoginProvider>
-          </QueryClientProvider>
-        </AppProvider>
+        <IndexerProvider>
+          <RelayProvider>
+            <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
+              <QueryClientProvider client={queryClient}>
+                <NostrLoginProvider storageKey='nostr:login'>
+                  <NostrProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <Suspense>
+                        <AppRouter />
+                      </Suspense>
+                    </TooltipProvider>
+                  </NostrProvider>
+                </NostrLoginProvider>
+              </QueryClientProvider>
+            </AppProvider>
+          </RelayProvider>
+        </IndexerProvider>
       </NetworkProvider>
     </UnheadProvider>
   );

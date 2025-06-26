@@ -145,10 +145,42 @@ export const ANGOR_EVENT_KINDS = {
   ADDITIONAL_DATA: 30078
 } as const;
 
-// Constants
+// Indexer Configuration Types
+export interface IndexerEntry {
+  url: string;
+  isPrimary: boolean;
+}
+
+export interface IndexerConfig {
+  mainnet: IndexerEntry[];
+  testnet: IndexerEntry[];
+}
+
+// Constants - Multi-indexer configuration
+export const ANGOR_INDEXER_CONFIG: IndexerConfig = {
+  mainnet: [
+    { url: 'https://explorer.angor.io/', isPrimary: true },
+    { url: 'https://fulcrum.angor.online/', isPrimary: false },
+    { url: 'https://electrs.angor.online/', isPrimary: false }
+  ],
+  testnet: [
+    { url: 'https://tbtc.indexer.angor.io/', isPrimary: false },
+    { url: 'https://signet.angor.online/', isPrimary: true }
+  ]
+};
+
+// Helper function to get primary indexer URL
+export const getPrimaryIndexerUrl = (network: 'mainnet' | 'testnet'): string => {
+  const indexers = ANGOR_INDEXER_CONFIG[network];
+  const primary = indexers.find(indexer => indexer.isPrimary);
+  return primary ? primary.url : indexers[0]?.url || 
+    (network === 'mainnet' ? 'https://explorer.angor.io/' : 'https://tbtc.indexer.angor.io/');
+};
+
+// Backward compatibility - keep the old constant for now
 export const ANGOR_INDEXER_BASE_URL = {
-  mainnet: 'https://explorer.angor.io/',
-  testnet: 'https://tbtc.indexer.angor.io/'
+  mainnet: getPrimaryIndexerUrl('mainnet'),
+  testnet: getPrimaryIndexerUrl('testnet')
 };
 
 export const ANGOR_RELAY_POOL = {

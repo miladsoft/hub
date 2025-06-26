@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { angorData } from '@/services/angorData';
 import { angorIndexer } from '@/services/angorIndexer';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useCurrentIndexer } from '@/hooks/useCurrentIndexer';
 import type { IndexedProject, ProjectFilters } from '@/types/angor';
 
 export interface UseAngorProjectsOptions {
@@ -20,6 +21,7 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
     refreshInterval = 5 * 60 * 1000, // 5 minutes
   } = options;
   const { network } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
 
   const [progress, setProgress] = useState({ current: 0, total: 100, stage: '' });
 
@@ -28,7 +30,7 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
   }, []);
 
   const query = useQuery({
-    queryKey: ['angor-projects', limit, offset, network],
+    queryKey: ['angor-projects', limit, offset, network, primaryUrl],
     queryFn: async () => {
       setProgress({ current: 0, total: 100, stage: 'Starting...' });
       const projects = await angorData.loadProjectsWithFullData(
@@ -53,9 +55,10 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
 
 export function useAngorProject(projectId: string | undefined) {
   const { network } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
   
   return useQuery({
-    queryKey: ['angor-project', projectId, network],
+    queryKey: ['angor-project', projectId, network, primaryUrl],
     queryFn: async () => {
       if (!projectId) return null;
       return angorIndexer.getProject(projectId, network);
@@ -68,9 +71,10 @@ export function useAngorProject(projectId: string | undefined) {
 
 export function useAngorProjectStats(projectId: string | undefined) {
   const { network } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
   
   return useQuery({
-    queryKey: ['angor-project-stats', projectId, network],
+    queryKey: ['angor-project-stats', projectId, network, primaryUrl],
     queryFn: async () => {
       if (!projectId) return null;
       return angorIndexer.getProjectStats(projectId, network);
@@ -84,9 +88,10 @@ export function useAngorProjectStats(projectId: string | undefined) {
 
 export function useAngorProjectInvestments(projectId: string | undefined) {
   const { network } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
   
   return useQuery({
-    queryKey: ['angor-project-investments', projectId, network],
+    queryKey: ['angor-project-investments', projectId, network, primaryUrl],
     queryFn: async () => {
       if (!projectId) return [];
       return angorIndexer.getProjectInvestments(projectId, network);
@@ -99,9 +104,10 @@ export function useAngorProjectInvestments(projectId: string | undefined) {
 
 export function useAngorProjectSearch(query: string, limit: number = 20) {
   const { network } = useNetwork();
+  const { primaryUrl } = useCurrentIndexer();
   
   return useQuery({
-    queryKey: ['angor-project-search', query, limit, network],
+    queryKey: ['angor-project-search', query, limit, network, primaryUrl],
     queryFn: async () => {
       if (!query.trim()) return [];
       return angorIndexer.searchProjects(query, limit, network);
