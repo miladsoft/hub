@@ -143,9 +143,10 @@ export function useNostrAdditionalData(pubkey: string | undefined) {
             } else if (event.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA) {
               // Kind 30078 - Additional data with d tags
               const dTag = event.tags.find(tag => tag[0] === 'd');
+              const content = JSON.parse(event.content);
+              
               if (dTag) {
                 const tagValue = dTag[1];
-                const content = JSON.parse(event.content);
                 
                 if (tagValue === 'angor:faq' || tagValue === 'faq') {
                   faq = content;
@@ -156,6 +157,11 @@ export function useNostrAdditionalData(pubkey: string | undefined) {
                 } else if (tagValue === 'angor:project' || tagValue === 'project') {
                   project = { ...project, ...content };
                 }
+              } else if (!dTag && content.projectIdentifier) {
+                // Untagged project data that contains projectIdentifier (main project details)
+                project = { ...project, ...content };
+                console.log(`🎯 Found untagged project data in useNostrAdditionalData:`, content);
+                console.log(`📊 Project fields - targetAmount: ${content.targetAmount}, founderKey: ${content.founderKey}`);
               }
             }
           } catch (error) {

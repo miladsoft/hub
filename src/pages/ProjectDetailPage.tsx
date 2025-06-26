@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
-import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates } from '@/services/nostrService';
+import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates, useNostrProjectByEventId } from '@/services/nostrService';
 import { useIndexerProject } from '@/hooks/useIndexerProject';
 import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
 
@@ -39,9 +39,16 @@ export function ProjectDetailPage() {
   const { data: investments, isLoading: investmentsLoading } = useAngorProjectInvestments(projectId);
   const { data: indexerProject } = useIndexerProject(projectId);
   
-  // Fetch Nostr data
-  const { data: projectMetadata } = useProjectMetadata(project?.nostrPubKey || indexerProject?.nostrPubKey);
-  const { data: additionalData } = useNostrAdditionalData(project?.nostrPubKey || indexerProject?.nostrPubKey);
+  // Fetch Nostr data using event ID if available
+  const eventId = indexerProject?.nostrEventId || project?.nostrEventId;
+  const { data: nostrProjectData } = useNostrProjectByEventId(eventId);
+  
+  // Use the nostrPubKey from various sources including the fetched Nostr data
+  const nostrPubKey = nostrProjectData?.nostrPubKey || project?.nostrPubKey || indexerProject?.nostrPubKey;
+  
+  // Fetch additional Nostr data
+  const { data: projectMetadata } = useProjectMetadata(nostrPubKey);
+  const { data: additionalData } = useNostrAdditionalData(nostrPubKey);
   const { data: updates } = useProjectUpdates(projectId);
 
   // Extract profile data from projectMetadata with type safety
@@ -71,24 +78,39 @@ export function ProjectDetailPage() {
 
   // Debug logging - Enhanced for Nostr project data and indexer data
   useEffect(() => {
+    console.log('🔍 ProjectDetailPage - Debug Info for project:', projectId);
+    console.log('📊 Project data:', project);
+    console.log('📈 Stats data:', stats);
+    console.log('🏛️ Indexer project data:', indexerProject);
+    console.log('🆔 Event ID found:', eventId);
+    console.log('🌟 Nostr project data from event:', nostrProjectData);
+    console.log('🔗 Final Nostr PubKey used:', nostrPubKey);
+    
     if (projectMetadata) {
       console.log('🔍 ProjectDetailPage - projectMetadata loaded:', projectMetadata);
       console.log('📋 Profile data:', profile);
       console.log('🎯 Project data:', projectData);
       console.log('🖼️ Media data:', mediaData);
+    } else {
+      console.log('❌ No projectMetadata loaded');
     }
+    
     if (additionalData) {
       console.log('🌐 Additional Nostr data:', additionalData);
       console.log('🏗️ Additional Project data (3030/30078):', additionalData?.project);
+    } else {
+      console.log('❌ No additionalData loaded');
     }
+    
     if (indexerProject) {
-      console.log('🏛️ Indexer project data:', indexerProject);
-      console.log('🔗 Indexer fields - founderKey:', indexerProject.founderKey);
-      console.log('🧱 Indexer fields - createdOnBlock:', indexerProject.createdOnBlock);
-      console.log('📜 Indexer fields - trxId:', indexerProject.trxId);
-      console.log('🆔 Indexer fields - nostrEventId:', indexerProject.nostrEventId);
+      console.log('🏛️ Indexer project data details:');
+      console.log('🔗 Indexer founderKey:', indexerProject.founderKey);
+      console.log('🧱 Indexer createdOnBlock:', indexerProject.createdOnBlock);
+      console.log('📜 Indexer trxId:', indexerProject.trxId);
+      console.log('🆔 Indexer nostrEventId:', indexerProject.nostrEventId);
+      console.log('🔑 Indexer nostrPubKey:', indexerProject.nostrPubKey);
     }
-  }, [projectMetadata, profile, projectData, mediaData, additionalData, indexerProject]);
+  }, [projectId, project, stats, indexerProject, eventId, nostrProjectData, nostrPubKey, projectMetadata, profile, projectData, mediaData, additionalData]);
 
   const isLoading = projectLoading || statsLoading || investmentsLoading;
 
@@ -433,21 +455,29 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Project Identifier</Label>
                     <div className="text-sm text-muted-foreground font-mono">
-                      {indexerProject?.projectIdentifier || project?.projectIdentifier || additionalData?.project?.projectIdentifier || 'N/A'}
+                      {nostrProjectData?.projectDetails?.projectIdentifier || 
+                       additionalData?.project?.projectIdentifier || 
+                       indexerProject?.projectIdentifier || 
+                       project?.projectIdentifier || 'N/A'}
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Nostr Public Key</Label>
                     <div className="text-sm text-muted-foreground font-mono break-all">
-                      {indexerProject?.nostrPubKey || project?.nostrPubKey || additionalData?.project?.nostrPubKey || 'N/A'}
+                      {nostrProjectData?.projectDetails?.nostrPubKey || 
+                       additionalData?.project?.nostrPubKey || 
+                       indexerProject?.nostrPubKey || 
+                       project?.nostrPubKey || 'N/A'}
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Founder Key</Label>
                     <div className="text-sm text-muted-foreground font-mono break-all">
-                      {indexerProject?.founderKey || additionalData?.project?.founderKey || 'N/A'}
+                      {nostrProjectData?.projectDetails?.founderKey || 
+                       additionalData?.project?.founderKey || 
+                       indexerProject?.founderKey || 'N/A'}
                     </div>
                   </div>
 
@@ -481,15 +511,16 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Founder Recovery Key</Label>
                     <div className="text-sm text-muted-foreground font-mono break-all">
-                      {additionalData?.project?.founderRecoveryKey || 'N/A'}
+                      {nostrProjectData?.projectDetails?.founderRecoveryKey || 
+                       additionalData?.project?.founderRecoveryKey || 'N/A'}
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Start Date</Label>
                     <div className="text-sm text-muted-foreground">
-                      {additionalData?.project?.startDate ? 
-                        new Date(additionalData?.project.startDate * 1000).toLocaleDateString('fa-IR', {
+                      {(nostrProjectData?.projectDetails?.startDate || additionalData?.project?.startDate) ? 
+                        new Date((nostrProjectData?.projectDetails?.startDate || additionalData?.project.startDate) * 1000).toLocaleDateString('fa-IR', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -510,8 +541,8 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Expiry Date</Label>
                     <div className="text-sm text-muted-foreground">
-                      {additionalData?.project?.expiryDate ? 
-                        new Date(additionalData?.project.expiryDate * 1000).toLocaleDateString('fa-IR', {
+                      {(nostrProjectData?.projectDetails?.expiryDate || additionalData?.project?.expiryDate) ? 
+                        new Date((nostrProjectData?.projectDetails?.expiryDate || additionalData?.project.expiryDate) * 1000).toLocaleDateString('fa-IR', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -532,8 +563,8 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Target Amount</Label>
                     <div className="text-sm text-muted-foreground">
-                      {additionalData?.project?.targetAmount ? 
-                        `${formatBTC(additionalData?.project.targetAmount)} (${additionalData?.project.targetAmount.toLocaleString()} sats)` : 
+                      {(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project?.targetAmount) ? 
+                        `${formatBTC(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project.targetAmount)} (${(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project.targetAmount).toLocaleString()} sats)` : 
                         (stats?.targetAmount ? `${formatBTC(stats.targetAmount)}` : 'N/A')
                       }
                     </div>
@@ -542,8 +573,8 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Penalty Days</Label>
                     <div className="text-sm text-muted-foreground">
-                      {indexerProject?.penaltyDays || additionalData?.project?.penaltyDays ? 
-                        `${indexerProject?.penaltyDays || additionalData?.project?.penaltyDays} days` : 'N/A'
+                      {(nostrProjectData?.projectDetails?.penaltyDays || additionalData?.project?.penaltyDays || indexerProject?.penaltyDays) ? 
+                        `${nostrProjectData?.projectDetails?.penaltyDays || additionalData?.project?.penaltyDays || indexerProject?.penaltyDays} days` : 'N/A'
                       }
                     </div>
                   </div>
