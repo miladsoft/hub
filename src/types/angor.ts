@@ -37,6 +37,10 @@ export interface ProjectStats {
   targetAmount: number;
   daysRemaining?: number;
   status: 'active' | 'completed' | 'expired' | 'upcoming';
+  // Additional indexer stats
+  amountSpentSoFarByFounder?: number;
+  amountInPenalties?: number;
+  countInPenalties?: number;
 }
 
 export interface ProjectDetails {

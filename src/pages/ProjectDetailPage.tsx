@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
-import { useNostrProfile, useNostrAdditionalData, useProjectUpdates } from '@/services/nostrService';
+import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates } from '@/services/nostrService';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -37,9 +37,14 @@ export function ProjectDetailPage() {
   const { data: investments, isLoading: investmentsLoading } = useAngorProjectInvestments(projectId);
   
   // Fetch Nostr data
-  const { data: profile } = useNostrProfile(project?.nostrPubKey);
+  const { data: projectMetadata } = useProjectMetadata(project?.nostrPubKey);
   const { data: additionalData } = useNostrAdditionalData(project?.nostrPubKey);
   const { data: updates } = useProjectUpdates(projectId);
+
+  // Extract profile data from projectMetadata
+  const profile = projectMetadata?.profile as any;
+  const projectData = projectMetadata?.project as any;
+  const mediaData = projectMetadata?.media as any;
 
   const isLoading = projectLoading || statsLoading || investmentsLoading;
 
@@ -92,7 +97,20 @@ export function ProjectDetailPage() {
   }[stats.status];
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
+    <div className="min-h-screen">
+      {/* Project Banner */}
+      {(projectData?.banner || profile?.banner || (mediaData as any)?.banner) && (
+        <div className="relative h-64 w-full">
+          <img 
+            src={projectData?.banner || profile?.banner || (mediaData as any)?.banner}
+            alt="Project banner"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/30" />
+        </div>
+      )}
+      
+      <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Back Button */}
       <Button
         variant="ghost"
@@ -124,14 +142,14 @@ export function ProjectDetailPage() {
             </div>
 
             <h1 className="text-4xl font-bold">
-              {profile?.name || project.projectIdentifier}
+              {projectData?.name || profile?.name || project.projectIdentifier}
             </h1>
 
             <div className="flex items-center space-x-4">
               <Avatar className="h-12 w-12">
-                <AvatarImage src={profile?.picture} />
+                <AvatarImage src={projectData?.picture || profile?.picture || (mediaData as any)?.picture} />
                 <AvatarFallback>
-                  {profile?.name?.charAt(0) || 'A'}
+                  {(projectData?.name || profile?.name)?.charAt(0) || 'A'}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -145,7 +163,7 @@ export function ProjectDetailPage() {
             </div>
 
             <p className="text-lg text-muted-foreground">
-              {profile?.about || 'No description available'}
+              {projectData?.about || profile?.about || 'No description available'}
             </p>
           </div>
 
@@ -280,20 +298,21 @@ export function ProjectDetailPage() {
             <CardContent>
               <div className="prose max-w-none">
                 <p>
-                  {profile?.about || 'Detailed project description will be available here once the creator provides more information.'}
+                  {projectData?.about || profile?.about || 'Detailed project description will be available here once the creator provides more information.'}
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {(additionalData && additionalData.media && 'gallery' in additionalData.media && Array.isArray(additionalData.media.gallery) && additionalData.media.gallery.length > 0) && (
+          {(((mediaData as any)?.gallery && Array.isArray((mediaData as any).gallery) && (mediaData as any).gallery.length > 0) || 
+            (additionalData && additionalData.media && 'gallery' in additionalData.media && Array.isArray(additionalData.media.gallery) && additionalData.media.gallery.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Media Gallery</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {additionalData.media.gallery.map((item, index: number) => (
+                  {((mediaData as any)?.gallery || additionalData?.media?.gallery || []).map((item: any, index: number) => (
                     <div key={index} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
                       <span className="text-muted-foreground">
                         {item && typeof item === 'object' && 'caption' in item 

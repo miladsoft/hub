@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CalendarDays, Users, Target, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNostrProjectByEventId, useProjectMetadata } from '@/services/nostrService';
+import { useAngorProjectStats } from '@/hooks/useAngorProjects';
 import type { AngorProject } from '@/types/angor';
 
 interface AngorProjectCardProps {
@@ -18,6 +19,9 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
   // Fetch detailed project info from Nostr
   const { data: nostrProjectData } = useNostrProjectByEventId(project.nostrEventId);
   const { data: projectMetadata } = useProjectMetadata(nostrProjectData?.nostrPubKey);
+  
+  // Fetch real-time stats from indexer
+  const { data: indexerStats, isLoading: statsLoading } = useAngorProjectStats(project.projectIdentifier);
   
   // Use Nostr data if available, fallback to indexer data
   const projectName = (projectMetadata?.profile as any)?.name || 
@@ -39,14 +43,21 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
                        (projectMetadata?.media as any)?.banner ||
                        project.metadata?.banner;
   
-  const completionPercentage = project.stats?.completionPercentage || 
+  
+  const completionPercentage = indexerStats?.completionPercentage || 
+    project.stats?.completionPercentage || 
     (project.targetAmount && project.targetAmount > 0 && project.amountInvested 
       ? Math.round(((project.amountInvested || 0) / project.targetAmount) * 100) 
       : 0);
   
   const fundingProgress = Math.min(completionPercentage, 100);
   
-  const status = project.stats?.status || 'active';
+  // Use indexer stats if available, fallback to project data
+  const currentAmountInvested = indexerStats?.amountInvested || project.amountInvested || 0;
+  const currentInvestorCount = indexerStats?.investorCount || project.investorCount || 0;
+  const currentTargetAmount = indexerStats?.targetAmount || project.targetAmount || 0;
+  
+  const status = indexerStats?.status || project.stats?.status || 'active';
   const statusColor = {
     active: 'bg-green-500',
     completed: 'bg-blue-500',
@@ -101,17 +112,28 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
         <div className="absolute inset-0 bg-black/20" />
         
         {/* Status Badge - Top left */}
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 flex gap-2">
           <Badge className={`text-white ${statusColor} border-none text-xs shadow-md`}>
             {statusText}
           </Badge>
+          {/* Show live stats indicator */}
+          {indexerStats && !statsLoading && (
+            <Badge variant="secondary" className="bg-green-600 text-white border-none text-xs shadow-md">
+              Live
+            </Badge>
+          )}
+          {statsLoading && (
+            <Badge variant="secondary" className="bg-gray-600 text-white border-none text-xs shadow-md animate-pulse">
+              Loading...
+            </Badge>
+          )}
         </div>
         
         {/* Target Amount - Top right */}
         <div className="absolute top-3 right-3">
           <Badge variant="secondary" className="bg-black/60 text-white border-none text-xs shadow-md backdrop-blur-sm">
             <Bitcoin className="w-3 h-3 mr-1" />
-            {project.targetAmount ? formatBTC(project.targetAmount) : 'No target'}
+            {currentTargetAmount ? formatBTC(currentTargetAmount) : 'No target'}
           </Badge>
         </div>
       </div>
@@ -152,8 +174,8 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
           </div>
           <Progress value={fundingProgress} className="h-2" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{formatBTC(project.amountInvested || 0)} raised</span>
-            <span>Goal: {formatBTC(project.targetAmount || 0)}</span>
+            <span>{formatBTC(currentAmountInvested)} raised</span>
+            <span>Goal: {formatBTC(currentTargetAmount)}</span>
           </div>
         </div>
 
@@ -163,7 +185,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Users className="w-4 h-4" />
             </div>
-            <div className="text-sm font-semibold">{formatAmount(project.investorCount || 0)}</div>
+            <div className="text-sm font-semibold">{formatAmount(currentInvestorCount)}</div>
             <div className="text-xs text-muted-foreground">Investors</div>
           </div>
           
@@ -171,7 +193,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Target className="w-4 h-4" />
             </div>
-            <div className="text-sm font-semibold">{formatAmount(project.targetAmount || 0)}</div>
+            <div className="text-sm font-semibold">{formatAmount(currentTargetAmount)}</div>
             <div className="text-xs text-muted-foreground">Target</div>
           </div>
           
@@ -179,7 +201,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <div className="flex items-center justify-center text-muted-foreground mb-1">
               <CalendarDays className="w-4 h-4" />
             </div>
-            <div className="text-sm font-semibold">{daysRemaining || '∞'}</div>
+            <div className="text-sm font-semibold">{indexerStats?.daysRemaining || daysRemaining || '∞'}</div>
             <div className="text-xs text-muted-foreground">Days left</div>
           </div>
         </div>
@@ -190,6 +212,27 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <Badge variant="outline" className="text-xs">
               {project.metadata.category}
             </Badge>
+          </div>
+        )}
+
+        {/* Additional Indexer Stats */}
+        {indexerStats && (indexerStats.amountSpentSoFarByFounder !== undefined || indexerStats.amountInPenalties !== undefined) && (
+          <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="text-xs font-medium text-muted-foreground mb-2">Additional Stats</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {indexerStats.amountSpentSoFarByFounder !== undefined && (
+                <div>
+                  <span className="text-muted-foreground">Founder Spent:</span>
+                  <div className="font-semibold">{formatBTC(indexerStats.amountSpentSoFarByFounder)}</div>
+                </div>
+              )}
+              {indexerStats.amountInPenalties !== undefined && (
+                <div>
+                  <span className="text-muted-foreground">Penalties:</span>
+                  <div className="font-semibold">{formatBTC(indexerStats.amountInPenalties)}</div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
