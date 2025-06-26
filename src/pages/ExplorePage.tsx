@@ -47,8 +47,8 @@ export function ExplorePage() {
     isFetchingNextPage,
     isComplete
   } = useAngorProjects({ 
-    enabled: true,
-    refetchInterval: 30000
+    enabled: true
+    // Remove automatic refetch - user can manually refresh if needed
   });
 
   // Deny list service
