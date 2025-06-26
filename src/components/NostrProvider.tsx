@@ -33,7 +33,21 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        return new Map([[relayUrl.current, filters]]);
+        // Use all available relays for reading data
+        const allRelays = new Set<string>([relayUrl.current]);
+        
+        // Add all preset relays for data fetching
+        for (const { url } of (presetRelays ?? [])) {
+          allRelays.add(url);
+        }
+        
+        // Return the same filters for all relays to aggregate data
+        const relayMap = new Map();
+        for (const relay of allRelays) {
+          relayMap.set(relay, filters);
+        }
+        
+        return relayMap;
       },
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       eventRouter(_event: NostrEvent) {
