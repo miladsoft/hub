@@ -10,7 +10,6 @@ import {
   Target, 
   Users, 
   Zap, 
-  Bitcoin, 
   RotateCcw,
   X,
   Filter,
@@ -251,19 +250,7 @@ export function ExplorePage() {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-12 pb-16 relative overflow-hidden">
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <div className="absolute top-0 left-0 w-64 h-64 bg-primary/10 rounded-full filter blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-orange-500/10 rounded-full filter blur-3xl"></div>
-        </div>
-        
         <div className="relative z-10 text-center">
-          <div className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full bg-orange-500/15 text-orange-600 backdrop-blur-md hover:bg-orange-500/25 transition-all duration-300 mb-6">
-            <Bitcoin className="h-5 w-5" />
-            <span className="font-semibold text-sm uppercase tracking-wide">
-              {network === 'mainnet' ? 'Bitcoin Mainnet' : 'Bitcoin Testnet'}
-            </span>
-          </div>
-          
           <h1 className="text-4xl md:text-6xl font-bold mb-4 text-foreground">
             Explore Projects
           </h1>
@@ -274,7 +261,7 @@ export function ExplorePage() {
       </section>
 
       {/* Search and Filters */}
-      <div className="sticky top-4 z-50 px-4 mb-12">
+      <div className="sticky top-4 z-30 px-4 mb-12">
         <div className="max-w-6xl mx-auto bg-card/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-border">
           <div className="flex items-center gap-4 p-4">
             {/* Search Input */}

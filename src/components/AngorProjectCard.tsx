@@ -193,7 +193,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-orange-400 to-orange-600" />
+          <div className="w-full h-full bg-[#086c81]" />
         )}
         
         {/* Overlay for better text readability */}
@@ -313,7 +313,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
         {/* Action Button - Always at bottom */}
         <Button 
           onClick={handleViewProject}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white mt-auto"
+          className="w-full bg-[#086c81] hover:bg-[#022229] text-white mt-auto"
         >
           View Project
         </Button>
