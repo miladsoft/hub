@@ -11,6 +11,13 @@ export interface AppConfig {
   customRelays?: string[];
 }
 
+export interface GlobalLoadingState {
+  /** Whether the app is in a global loading state */
+  isLoading: boolean;
+  /** Loading message to display */
+  message?: string;
+}
+
 export interface AppContextType {
   /** Current application configuration */
   config: AppConfig;
@@ -18,6 +25,10 @@ export interface AppContextType {
   updateConfig: (updater: (currentConfig: AppConfig) => AppConfig) => void;
   /** Optional list of preset relays to display in the RelaySelector */
   presetRelays?: { name: string; url: string }[];
+  /** Global loading state */
+  loading: GlobalLoadingState;
+  /** Set global loading state */
+  setLoading: (loading: GlobalLoadingState) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);

@@ -23,7 +23,9 @@ import LoginDialog from '@/components/auth/LoginDialog';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NetworkSelector } from '@/components/NetworkSelector';
 import { useToast } from '@/hooks/useToast';
+import { useAppContext } from '@/hooks/useAppContext';
 import { Sidebar } from '@/components/Sidebar';
+import { ThemeLoadingOverlay } from '@/components/ThemeLoading';
 
 interface AngorLayoutProps {
   children: React.ReactNode;
@@ -33,6 +35,7 @@ export function AngorLayout({ children }: AngorLayoutProps) {
   const { user, metadata } = useCurrentUser();
   const { logout } = useLoginActions();
   const { toast } = useToast();
+  const { loading } = useAppContext();
   
   const [showLogin, setShowLogin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -202,6 +205,12 @@ export function AngorLayout({ children }: AngorLayoutProps) {
             description: "You have successfully signed in with Nostr",
           });
         }}
+      />
+      
+      {/* Global Loading Overlay with fade-out support */}
+      <ThemeLoadingOverlay 
+        text={loading.message || 'Loading...'} 
+        isVisible={loading.isLoading}
       />
     </div>
   );

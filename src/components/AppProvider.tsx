@@ -1,6 +1,6 @@
-import React, { useEffect, type ReactNode } from 'react';
+import React, { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
+import { AppContext, type AppConfig, type AppContextType, type Theme, type GlobalLoadingState } from '@/contexts/AppContext';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -22,6 +22,14 @@ export function AppProvider(props: AppProviderProps) {
 
   // App configuration state with localStorage persistence
   const [config, setConfig] = useLocalStorage<AppConfig>(storageKey, defaultConfig);
+  
+  // Global loading state
+  const [loading, setLoadingState] = useState<GlobalLoadingState>({ isLoading: false });
+
+  // Stable setLoading function
+  const setLoading = useCallback((newLoading: GlobalLoadingState) => {
+    setLoadingState(newLoading);
+  }, []);
 
   // Generic config updater with callback pattern
   const updateConfig = (updater: (currentConfig: AppConfig) => AppConfig) => {
@@ -48,6 +56,8 @@ export function AppProvider(props: AppProviderProps) {
     config,
     updateConfig,
     presetRelays: mergedRelays,
+    loading,
+    setLoading,
   };
 
   // Apply theme effects to document
