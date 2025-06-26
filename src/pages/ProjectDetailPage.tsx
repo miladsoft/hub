@@ -67,10 +67,21 @@ export function ProjectDetailPage() {
     return amount.toString();
   };
 
+  const safeFormatDistanceToNow = (timestamp: number | undefined) => {
+    if (!timestamp || timestamp <= 0) return 'Unknown time';
+    try {
+      const date = new Date(timestamp * 1000);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
   const completionPercentage = Math.min(stats.completionPercentage, 100);
   
   const timeRemaining = project.details?.expiryDate
-    ? formatDistanceToNow(new Date(project.details.expiryDate * 1000), { addSuffix: true })
+    ? safeFormatDistanceToNow(project.details.expiryDate)
     : 'No deadline';
 
   const statusColor = {
@@ -306,7 +317,7 @@ export function ProjectDetailPage() {
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">Update #{index + 1}</CardTitle>
                     <span className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(new Date(update.created_at * 1000), { addSuffix: true })}
+                      {safeFormatDistanceToNow(update.created_at)}
                     </span>
                   </div>
                 </CardHeader>
@@ -391,7 +402,7 @@ export function ProjectDetailPage() {
                             {investment.investorPublicKey.slice(0, 8)}...{investment.investorPublicKey.slice(-8)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {formatDistanceToNow(new Date(investment.timeInvested * 1000), { addSuffix: true })}
+                            {safeFormatDistanceToNow(investment.timeInvested)}
                           </div>
                         </div>
                       </div>

@@ -168,7 +168,7 @@ export function useProjectUpdates(projectId: string | undefined) {
       return queryWithRetry(async () => {
         const signal = AbortSignal.timeout(5000);
         const events = await nostr.query([{
-          kinds: [ANGOR_EVENT_KINDS.PROJECT_UPDATE],
+          kinds: [ANGOR_EVENT_KINDS.PROJECT_INFO, ANGOR_EVENT_KINDS.PROJECT_NOTE],
           '#project': [projectId],
           limit: 50
         }], { signal });
@@ -202,7 +202,7 @@ export function useNostrProjects() {
       return queryWithRetry(async () => {
         const signal = AbortSignal.timeout(10000);
         const events = await nostr.query([{
-          kinds: [ANGOR_EVENT_KINDS.PROJECT_DETAILS],
+          kinds: [ANGOR_EVENT_KINDS.PROJECT_INFO, ANGOR_EVENT_KINDS.ADDITIONAL_DATA],
           limit: 100
         }], { signal });
 
@@ -225,6 +225,145 @@ export function useNostrProjects() {
           .filter(Boolean);
       }, 'All Nostr projects');
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch detailed project information by eventId (kinds 3030 and 30078)
+ */
+export function useNostrProjectByEventId(eventId: string | undefined) {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ['nostr-project-by-eventid', eventId],
+    queryFn: async () => {
+      if (!eventId) return null;
+
+      return queryWithRetry(async () => {
+        const signal = AbortSignal.timeout(8000);
+        
+        // Query for both project info kinds
+        const events = await nostr.query([
+          {
+            kinds: [ANGOR_EVENT_KINDS.PROJECT_INFO], // 3030
+            ids: [eventId],
+            limit: 1
+          },
+          {
+            kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA], // 30078  
+            ids: [eventId],
+            limit: 1
+          }
+        ], { signal });
+
+        if (events.length > 0) {
+          try {
+            const projectEvent = events.find(e => e.kind === ANGOR_EVENT_KINDS.PROJECT_INFO);
+            const additionalEvent = events.find(e => e.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA);
+            
+            let projectDetails = {};
+            let additionalData = {};
+            
+            if (projectEvent) {
+              projectDetails = JSON.parse(projectEvent.content);
+            }
+            
+            if (additionalEvent) {
+              additionalData = JSON.parse(additionalEvent.content);
+            }
+
+            return {
+              projectDetails,
+              additionalData,
+              nostrPubKey: projectEvent?.content ? JSON.parse(projectEvent.content).nostrPubKey : null,
+              eventId: eventId,
+              created_at: projectEvent?.created_at || additionalEvent?.created_at
+            };
+          } catch (error) {
+            console.error('Error parsing project data:', error);
+            return null;
+          }
+        }
+        return null;
+      }, `Project data for eventId ${eventId}`);
+    },
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook to fetch enhanced project metadata by nostrPubKey
+ */
+export function useProjectMetadata(nostrPubKey: string | undefined) {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ['project-metadata', nostrPubKey],
+    queryFn: async () => {
+      if (!nostrPubKey) return null;
+
+      return queryWithRetry(async () => {
+        const signal = AbortSignal.timeout(8000);
+        
+        // Fetch profile metadata (kind 0) and additional project data (kind 30078)
+        const events = await nostr.query([
+          {
+            kinds: [ANGOR_EVENT_KINDS.PROFILE_METADATA], // 0
+            authors: [nostrPubKey],
+            limit: 1
+          },
+          {
+            kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA], // 30078
+            authors: [nostrPubKey],
+            '#d': ['angor:project', 'angor:media', 'angor:members'],
+            limit: 10
+          }
+        ], { signal });
+
+        let profile = {};
+        let projectData = {};
+        let mediaData = {};
+        let membersData = {};
+
+        for (const event of events) {
+          try {
+            if (event.kind === ANGOR_EVENT_KINDS.PROFILE_METADATA) {
+              profile = JSON.parse(event.content);
+            } else if (event.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA) {
+              const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
+              const content = JSON.parse(event.content);
+              
+              switch (dTag) {
+                case 'angor:project':
+                  projectData = content;
+                  break;
+                case 'angor:media':
+                  mediaData = content;
+                  break;
+                case 'angor:members':
+                  membersData = content;
+                  break;
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing event content:', error);
+          }
+        }
+
+        return {
+          profile,
+          project: projectData,
+          media: mediaData,
+          members: membersData,
+          nostrPubKey
+        };
+      }, `Project metadata for ${nostrPubKey}`);
+    },
+    enabled: !!nostrPubKey,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

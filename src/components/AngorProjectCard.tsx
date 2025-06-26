@@ -1,10 +1,11 @@
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, Users, Target, TrendingUp, Bitcoin } from 'lucide-react';
+import { CalendarDays, Users, Target, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useNostrProjectByEventId, useProjectMetadata } from '@/services/nostrService';
 import type { AngorProject } from '@/types/angor';
 
 interface AngorProjectCardProps {
@@ -13,6 +14,30 @@ interface AngorProjectCardProps {
 
 export function AngorProjectCard({ project }: AngorProjectCardProps) {
   const navigate = useNavigate();
+  
+  // Fetch detailed project info from Nostr
+  const { data: nostrProjectData } = useNostrProjectByEventId(project.nostrEventId);
+  const { data: projectMetadata } = useProjectMetadata(nostrProjectData?.nostrPubKey);
+  
+  // Use Nostr data if available, fallback to indexer data
+  const projectName = (projectMetadata?.profile as any)?.name || 
+                     (projectMetadata?.project as any)?.name || 
+                     project.metadata?.name || 
+                     `Project ${project.projectIdentifier.slice(0, 8)}...`;
+                     
+  const projectDescription = (projectMetadata?.profile as any)?.about || 
+                           (projectMetadata?.project as any)?.about || 
+                           project.metadata?.about || 
+                           project.details?.description || 
+                           'No description available.';
+                           
+  const projectPicture = (projectMetadata?.profile as any)?.picture || 
+                        (projectMetadata?.media as any)?.picture ||
+                        project.metadata?.picture;
+                        
+  const projectBanner = (projectMetadata?.profile as any)?.banner || 
+                       (projectMetadata?.media as any)?.banner ||
+                       project.metadata?.banner;
   
   const completionPercentage = project.stats?.completionPercentage || 
     (project.targetAmount && project.targetAmount > 0 && project.amountInvested 
@@ -53,60 +78,77 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
   };
 
   const daysRemaining = project.stats?.daysRemaining;
-  const timeText = daysRemaining !== undefined 
-    ? `${daysRemaining} days remaining`
-    : 'No deadline';
 
   const handleViewProject = () => {
     navigate(`/project/${project.projectIdentifier}`);
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow group">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between mb-2">
-          <Badge className={`text-white ${statusColor} border-none`}>
+    <Card className="hover:shadow-lg transition-shadow group overflow-hidden p-0 h-full flex flex-col">
+      {/* Banner - Full width cover from top */}
+      <div className="relative h-40 w-full">
+        {projectBanner ? (
+          <img 
+            src={projectBanner} 
+            alt={`${projectName} banner`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-orange-400 to-orange-600" />
+        )}
+        
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/20" />
+        
+        {/* Status Badge - Top left */}
+        <div className="absolute top-3 left-3">
+          <Badge className={`text-white ${statusColor} border-none text-xs shadow-md`}>
             {statusText}
           </Badge>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Bitcoin className="w-4 h-4 mr-1" />
-            <span className="capitalize">{project.targetAmount ? formatBTC(project.targetAmount) : 'No target'}</span>
-          </div>
         </div>
+        
+        {/* Target Amount - Top right */}
+        <div className="absolute top-3 right-3">
+          <Badge variant="secondary" className="bg-black/60 text-white border-none text-xs shadow-md backdrop-blur-sm">
+            <Bitcoin className="w-3 h-3 mr-1" />
+            {project.targetAmount ? formatBTC(project.targetAmount) : 'No target'}
+          </Badge>
+        </div>
+      </div>
 
-        {/* Project Title */}
-        <h3 className="font-semibold text-lg leading-tight group-hover:text-orange-600 transition-colors">
-          {project.metadata?.name || `Project ${project.projectIdentifier.slice(0, 8)}...`}
-        </h3>
-
-        {/* Creator Info */}
-        <div className="flex items-center space-x-2">
-          <Avatar className="w-6 h-6">
+      {/* Project Avatar - Overlapping banner (higher position) */}
+      <div className="relative px-5">
+        <div className="absolute -top-14 left-5">
+          <Avatar className="w-16 h-16 border-4 border-white shadow-lg">
             <AvatarImage 
-              src={project.profile?.picture} 
-              alt={project.profile?.name || 'Creator'} 
+              src={projectPicture} 
+              alt={projectName}
+              className="object-cover"
             />
-            <AvatarFallback className="text-xs">
-              {(project.profile?.name || project.founderKey)?.charAt(0).toUpperCase()}
+            <AvatarFallback className="text-lg font-semibold bg-orange-100 text-orange-700">
+              {projectName?.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-muted-foreground">
-            {project.profile?.name || `${project.founderKey.slice(0, 8)}...`}
-          </span>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4">
-        {/* Description */}
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {project.metadata?.about || project.details?.description || 'No description available.'}
-        </p>
+      {/* Content Section - Flexible grow */}
+      <div className="px-5 pt-5 pb-5 flex flex-col flex-grow">
+        {/* Project Title and Creator */}
+        <div className="mb-4">
+          <h3 className="font-bold text-lg leading-tight group-hover:text-orange-600 transition-colors mb-1">
+            {projectName}
+          </h3>
+          <p className="text-sm text-muted-foreground line-clamp-3 min-h-[3.6rem]">
+            {projectDescription}
+          </p>
+        </div>
 
         {/* Funding Progress */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Funding Progress</span>
-            <span className="font-medium">{fundingProgress}%</span>
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Funding Progress</span>
+            <span className="text-sm font-semibold text-orange-600">{fundingProgress}%</span>
           </div>
           <Progress value={fundingProgress} className="h-2" />
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -115,55 +157,53 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
           </div>
         </div>
 
-        {/* Project Stats */}
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="space-y-1">
-            <div className="flex items-center justify-center text-muted-foreground">
+        {/* Stats Row */}
+        <div className="flex justify-between text-center mb-4">
+          <div className="flex-1">
+            <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Users className="w-4 h-4" />
             </div>
-            <div className="text-sm font-medium">{formatAmount(project.investorCount || 0)}</div>
+            <div className="text-sm font-semibold">{formatAmount(project.investorCount || 0)}</div>
             <div className="text-xs text-muted-foreground">Investors</div>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex items-center justify-center text-muted-foreground">
+          <div className="flex-1">
+            <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Target className="w-4 h-4" />
             </div>
-            <div className="text-sm font-medium">{formatAmount(project.targetAmount || 0)}</div>
+            <div className="text-sm font-semibold">{formatAmount(project.targetAmount || 0)}</div>
             <div className="text-xs text-muted-foreground">Target</div>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex items-center justify-center text-muted-foreground">
-              <TrendingUp className="w-4 h-4" />
+          <div className="flex-1">
+            <div className="flex items-center justify-center text-muted-foreground mb-1">
+              <CalendarDays className="w-4 h-4" />
             </div>
-            <div className="text-sm font-medium">{fundingProgress}%</div>
-            <div className="text-xs text-muted-foreground">Progress</div>
+            <div className="text-sm font-semibold">{daysRemaining || '∞'}</div>
+            <div className="text-xs text-muted-foreground">Days left</div>
           </div>
         </div>
 
-        {/* Time Information */}
-        <div className="flex items-center text-sm text-muted-foreground">
-          <CalendarDays className="w-4 h-4 mr-1" />
-          <span>{timeText}</span>
-        </div>
-
-        {/* Category Badge */}
+        {/* Category Tag */}
         {project.metadata?.category && (
-          <Badge variant="outline" className="text-xs">
-            {project.metadata.category}
-          </Badge>
+          <div className="flex justify-start mb-4">
+            <Badge variant="outline" className="text-xs">
+              {project.metadata.category}
+            </Badge>
+          </div>
         )}
-      </CardContent>
 
-      <CardFooter>
+        {/* Spacer to push button to bottom */}
+        <div className="flex-grow"></div>
+
+        {/* Action Button - Always at bottom */}
         <Button 
           onClick={handleViewProject}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white mt-auto"
         >
           View Project
         </Button>
-      </CardFooter>
+      </div>
     </Card>
   );
 }

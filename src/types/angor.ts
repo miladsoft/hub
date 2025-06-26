@@ -135,14 +135,11 @@ export interface ProjectFilters {
 
 // Angor-specific event kinds
 export const ANGOR_EVENT_KINDS = {
-  PROJECT_DETAILS: 30382,
-  PROJECT_UPDATE: 30383,
-  PROJECT_INVESTMENT: 30384,
-  PROJECT_MILESTONE: 30385,
   PROFILE_METADATA: 0,
   PROJECT_NOTE: 1,
   PROJECT_REACTION: 7,
-  ADDITIONAL_DATA: 30078
+  ADDITIONAL_DATA: 30078,
+  PROJECT_INFO: 3030, // New kind for project information
 } as const;
 
 // Indexer Configuration Types
