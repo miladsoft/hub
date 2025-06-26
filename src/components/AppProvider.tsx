@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import React, { useEffect, type ReactNode } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AppContext, type AppConfig, type AppContextType, type Theme } from '@/contexts/AppContext';
 
@@ -28,10 +28,26 @@ export function AppProvider(props: AppProviderProps) {
     setConfig(updater);
   };
 
+  // Merge preset relays with custom relays
+  const mergedRelays = React.useMemo(() => {
+    const customRelays = config.customRelays || [];
+    const presetRelayUrls = new Set((presetRelays || []).map(r => r.url));
+    
+    // Add custom relays that are not already in preset relays
+    const customRelayItems = customRelays
+      .filter(url => !presetRelayUrls.has(url))
+      .map(url => ({
+        url,
+        name: `Custom (${url.replace(/^wss?:\/\//, '')})`
+      }));
+    
+    return [...(presetRelays || []), ...customRelayItems];
+  }, [presetRelays, config.customRelays]);
+
   const appContextValue: AppContextType = {
     config,
     updateConfig,
-    presetRelays,
+    presetRelays: mergedRelays,
   };
 
   // Apply theme effects to document

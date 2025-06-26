@@ -34,7 +34,8 @@ const queryClient = new QueryClient({
 
 const defaultConfig: AppConfig = {
   theme: "dark",
-  relayUrl: "wss://relay.nostr.band",
+  relayUrl: "wss://relay.angor.io",
+  customRelays: [],
 };
 
 const presetRelays = [
