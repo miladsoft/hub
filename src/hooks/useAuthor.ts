@@ -18,7 +18,8 @@ export function useAuthor(pubkey: string | undefined) {
       );
 
       if (!event) {
-        throw new Error('No event found');
+        // Don't throw error - return empty object instead
+        return {};
       }
 
       try {
@@ -28,6 +29,7 @@ export function useAuthor(pubkey: string | undefined) {
         return { event };
       }
     },
-    retry: 3,
+    retry: 1, // Reduce retry count to avoid excessive requests
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 }

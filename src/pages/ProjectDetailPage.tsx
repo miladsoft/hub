@@ -8,7 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ZapForm } from '@/components/ZapForm';
+import { useToast } from '@/hooks/useToast';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useNostr } from '@/hooks/useNostr';
+import { useQuery } from '@tanstack/react-query';
+import { nip19 } from 'nostr-tools';
 import { 
   ArrowLeft, 
   Share2,
@@ -20,7 +27,10 @@ import {
   Info,
   Users,
   Zap,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Twitter,
+  Facebook
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
@@ -30,6 +40,7 @@ import { useDenyList } from '@/services/denyService';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useSettings } from '@/hooks/useSettings';
 import { formatBitcoinAmount } from '@/lib/formatCurrency';
+import { useAuthor } from '@/hooks/useAuthor';
 import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
 
 // Helper function outside of component to avoid React hooks issues
@@ -55,11 +66,104 @@ const safeFormatDistanceToNow = (timestamp: number | undefined) => {
   }
 };
 
+// Team Member Profile Component - Enhanced with pubkey conversion
+function TeamMemberProfile({ pubkey, index }: { pubkey: string; index: number }) {
+  // Convert npub to hex if needed
+  const hexPubkey = (() => {
+    try {
+      // If pubkey starts with npub, convert to hex
+      if (pubkey.startsWith('npub')) {
+        const decoded = nip19.decode(pubkey);
+        if (decoded.type === 'npub') {
+          return decoded.data;
+        }
+      }
+      // Otherwise assume it's already hex
+      return pubkey;
+    } catch (error) {
+      console.warn(`Failed to decode pubkey ${pubkey}:`, error);
+      return pubkey; // Return original if conversion fails
+    }
+  })();
+  
+  const author = useAuthor(hexPubkey);
+  const metadata = author.data?.metadata;
+  const isLoading = author.isLoading;
+  const hasError = author.isError;
+
+  // Debug logging
+  console.log(`🧑‍🤝‍🧑 Team Member ${index + 1}:`, {
+    originalPubkey: pubkey.startsWith('npub') ? `${pubkey.slice(0, 12)}...` : `${pubkey.slice(0, 16)}...`,
+    hexPubkey: `${hexPubkey.slice(0, 16)}...`,
+    isLoading,
+    hasError,
+    hasMetadata: !!metadata,
+    metadata: metadata ? {
+      name: metadata.name,
+      display_name: metadata.display_name,
+      about: metadata.about?.slice(0, 50) + '...',
+      picture: !!metadata.picture
+    } : null
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center space-x-3 p-3 border rounded-lg">
+        <div className="h-10 w-10 bg-muted animate-pulse rounded-full" />
+        <div className="flex-1 space-y-1">
+          <div className="h-4 bg-muted animate-pulse rounded w-32" />
+          <div className="h-3 bg-muted animate-pulse rounded w-24" />
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = metadata?.display_name || metadata?.name || `Team Member ${index + 1}`;
+  
+  return (
+    <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent/5 transition-colors">
+      <Avatar className="h-10 w-10">
+        <AvatarImage src={metadata?.picture} alt={displayName} />
+        <AvatarFallback className="text-sm">
+          {displayName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm">{displayName}</div>
+        {metadata?.name && metadata?.display_name !== metadata?.name && (
+          <div className="text-xs text-muted-foreground">@{metadata.name}</div>
+        )}
+        {metadata?.about && (
+          <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
+            {metadata.about}
+          </div>
+        )}
+        {hasError && (
+          <div className="text-xs text-yellow-600 mt-1">
+            Profile data unavailable
+          </div>
+        )}
+        {/* Show pubkey for debugging */}
+        <div className="text-xs text-muted-foreground/50 font-mono mt-1">
+          {pubkey.startsWith('npub') ? `${pubkey.slice(0, 12)}...` : `${pubkey.slice(0, 16)}...`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  const [isLiking, setIsLiking] = useState(false);
+
+  // Get current user for likes and sharing
+  const { user } = useCurrentUser();
+  const { mutate: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
+  const { nostr } = useNostr();
 
   // Get network and settings for currency formatting
   const { network } = useNetwork();
@@ -91,15 +195,179 @@ export function ProjectDetailPage() {
   // Use the nostrPubKey from various sources including the fetched Nostr data
   const nostrPubKey = nostrProjectData?.nostrPubKey || project?.nostrPubKey || indexerProject?.nostrPubKey;
   
+  // Fetch likes for this project using Nostr
+  const { data: projectLikes, refetch: refetchLikes } = useQuery({
+    queryKey: ['projectLikes', nostrPubKey],
+    queryFn: async () => {
+      if (!nostrPubKey) return { likes: [], count: 0, userHasLiked: false };
+      
+      try {
+        const signal = AbortSignal.timeout(5000);
+        const events = await nostr.query([
+          {
+            kinds: [7], // Reaction events
+            '#p': [nostrPubKey], // Reactions to this pubkey
+            limit: 1000
+          }
+        ], { signal });
+
+        // Process likes (content: "+") vs unlikes (content: "-")
+        const likeMap = new Map();
+        
+        events.forEach(event => {
+          const userId = event.pubkey;
+          const isLike = event.content === '+';
+          const isUnlike = event.content === '-';
+          
+          if (isLike || isUnlike) {
+            const existingReaction = likeMap.get(userId);
+            if (!existingReaction || event.created_at > existingReaction.created_at) {
+              likeMap.set(userId, {
+                isLike,
+                created_at: event.created_at,
+                eventId: event.id
+              });
+            }
+          }
+        });
+
+        // Count only users who have active likes (not unlikes)
+        const activeLikes = Array.from(likeMap.values()).filter(reaction => reaction.isLike);
+        const userHasLiked = user ? likeMap.get(user.pubkey)?.isLike || false : false;
+
+        return {
+          likes: activeLikes,
+          count: activeLikes.length,
+          userHasLiked
+        };
+      } catch (error) {
+        console.error('Failed to fetch project likes:', error);
+        return { likes: [], count: 0, userHasLiked: false };
+      }
+    },
+    enabled: !!nostrPubKey,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+  
   // Fetch additional Nostr data
   const { data: projectMetadata } = useProjectMetadata(nostrPubKey);
   const { data: additionalData } = useNostrAdditionalData(nostrPubKey);
   const { data: updates } = useProjectUpdates(projectId);
   
+  // Debug logging for team data - simplified
+  if (additionalData?.members) {
+    console.log('🧪 Team Data:', {
+      hasPubkeys: !!(additionalData.members as any).pubkeys,
+      pubkeysCount: Array.isArray((additionalData.members as any).pubkeys) ? (additionalData.members as any).pubkeys.length : 0
+    });
+  }
+  
   // Extract profile data from projectMetadata with type safety - Must be before early returns
   const profile = projectMetadata?.profile as NostrProfile | undefined;
   const projectData = projectMetadata?.project as ProjectMetadata | undefined;
   const mediaData = projectMetadata?.media as ProjectMedia | undefined;
+
+  // Handle like functionality
+  const handleLike = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login with your Nostr account to like this project",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!nostrPubKey) {
+      toast({
+        title: "Cannot Like",
+        description: "Project Nostr public key not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLiking(true);
+    try {
+      const isCurrentlyLiked = projectLikes?.userHasLiked || false;
+      
+      // Send a like reaction (kind 7) to the project
+      publishEvent({
+        kind: 7,
+        content: isCurrentlyLiked ? "-" : "+", // Toggle like/unlike
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ["p", nostrPubKey], // Reference to the project creator's pubkey
+        ]
+      });
+      
+      // Refetch likes after a short delay to get updated count
+      setTimeout(() => {
+        refetchLikes();
+      }, 1000);
+
+      toast({
+        title: isCurrentlyLiked ? "Unliked" : "Liked!",
+        description: isCurrentlyLiked ? "You unliked this project" : "You liked this project",
+      });
+    } catch (error) {
+      console.error('Failed to like project:', error);
+      toast({
+        title: "Like Failed",
+        description: "Could not send like. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  // Handle share functionality
+  const handleShare = async (platform: 'copy' | 'twitter' | 'facebook' | 'telegram') => {
+    const projectUrl = window.location.href;
+    const projectTitle = projectData?.name || profile?.name || 'Angor Project';
+    const projectDescription = projectData?.about || profile?.about || 'Check out this amazing project on Angor!';
+
+    switch (platform) {
+      case 'copy':
+        try {
+          await navigator.clipboard.writeText(projectUrl);
+          toast({
+            title: "Link Copied!",
+            description: "Project link copied to clipboard",
+          });
+        } catch (error) {
+          console.error('Failed to copy link:', error);
+          toast({
+            title: "Copy Failed",
+            description: "Could not copy link to clipboard",
+            variant: "destructive"
+          });
+        }
+        break;
+
+      case 'twitter':
+        {
+          const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`${projectTitle} - ${projectDescription}`)}&url=${encodeURIComponent(projectUrl)}&hashtags=Angor,Bitcoin,Crowdfunding`;
+          window.open(twitterUrl, '_blank', 'width=600,height=400');
+        }
+        break;
+
+      case 'facebook':
+        {
+          const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(projectUrl)}`;
+          window.open(facebookUrl, '_blank', 'width=600,height=400');
+        }
+        break;
+
+      case 'telegram':
+        {
+          const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(projectUrl)}&text=${encodeURIComponent(`${projectTitle} - ${projectDescription}`)}`;
+          window.open(telegramUrl, '_blank', 'width=600,height=400');
+        }
+        break;
+    }
+  };
   
   // Debug logging - Enhanced for Nostr project data and indexer data
   useEffect(() => {
@@ -242,12 +510,50 @@ export function ProjectDetailPage() {
                 {(stats?.status || 'ACTIVE').toUpperCase()}
               </Badge>
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm">
-                  <Heart className="h-4 w-4" />
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleLike}
+                  disabled={isLiking}
+                  className={`flex items-center space-x-1 ${projectLikes?.userHasLiked ? 'text-red-500' : 'text-muted-foreground'} hover:text-red-500`}
+                >
+                  <Heart 
+                    className={`h-8 w-8 transition-all duration-200 ${
+                      projectLikes?.userHasLiked ? 'fill-current' : ''
+                    } ${
+                      isLiking ? 'animate-heartbeat' : ''
+                    }`}
+                  />
+                  <span className="text-sm font-medium">
+                    {projectLikes?.count || 0}
+                  </span>
                 </Button>
-                <Button variant="ghost" size="sm">
-                  <Share2 className="h-4 w-4" />
-                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Share2 className="h-8 w-8" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handleShare('copy')}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleShare('twitter')}>
+                      <Twitter className="h-4 w-4 mr-2" />
+                      Share on Twitter
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleShare('facebook')}>
+                      <Facebook className="h-4 w-4 mr-2" />
+                      Share on Facebook
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleShare('telegram')}>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Share on Telegram
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -328,66 +634,6 @@ export function ProjectDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Advanced Statistics */}
-          {indexerProject && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Advanced Statistics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {indexerProject.totalInvestmentsCount || indexerProject.investorCount || 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Total Investments</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">
-                      {indexerProject.penaltyDays || 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Penalty Days</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-indigo-600">
-                      {indexerProject.createdOnBlock?.toLocaleString() || 'N/A'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Created Block</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-cyan-600">
-                      {stats?.amountSpentSoFarByFounder ? formatBTC(stats.amountSpentSoFarByFounder) : '0 BTC'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Founder Spent</div>
-                  </div>
-                </div>
-
-                {(stats?.amountInPenalties || stats?.countInPenalties) && (
-                  <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-3 text-red-600">Penalty Information</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-red-600">
-                          {formatBTC(stats?.amountInPenalties || 0)}
-                        </div>
-                        <div className="text-sm text-muted-foreground">Amount in Penalties</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl font-bold text-red-600">
-                          {stats?.countInPenalties || 0}
-                        </div>
-                        <div className="text-sm text-muted-foreground">Penalty Count</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Investment/Zap Actions Sidebar */}
@@ -732,21 +978,81 @@ export function ProjectDetailPage() {
           )}
 
           {/* Media Gallery */}
-          {(hasGallery(mediaData) || hasGallery(additionalData?.media)) && (
+          {(hasGallery(mediaData) || hasGallery(additionalData?.media) || (additionalData?.media && Array.isArray(additionalData.media) && additionalData.media.length > 0)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Media Gallery</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {getGalleryItems().map((item, index) => (
-                    <div key={index} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                      <span className="text-muted-foreground">
-                        {item?.caption || `Media ${index + 1}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {/* Display media from Kind 30078 (additionalData.media array) */}
+                {additionalData?.media && Array.isArray(additionalData.media) && additionalData.media.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {additionalData.media.map((item: any, index: number) => (
+                      <div key={index} className="bg-muted rounded-lg overflow-hidden">
+                        {item?.type === 'video' && item?.url ? (
+                          <div className="aspect-video">
+                            {item.url.includes('youtube.com') || item.url.includes('youtu.be') ? (
+                              <iframe
+                                src={item.url.replace('youtu.be/', 'youtube.com/embed/').replace('watch?v=', 'embed/')}
+                                title={`Video ${index + 1}`}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            ) : (
+                              <video 
+                                src={item.url} 
+                                controls 
+                                className="w-full h-full object-cover"
+                                title={`Video ${index + 1}`}
+                              />
+                            )}
+                          </div>
+                        ) : item?.type === 'image' && item?.url ? (
+                          <div className="aspect-square">
+                            <img 
+                              src={item.url} 
+                              alt={`Media ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-square flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="text-muted-foreground font-medium">
+                                {item?.type || 'Media'}
+                              </div>
+                              {item?.url && (
+                                <a 
+                                  href={item.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline text-sm"
+                                >
+                                  View Media
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Display traditional gallery media */}
+                {(hasGallery(mediaData) || hasGallery(additionalData?.media)) && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {getGalleryItems().map((item, index) => (
+                      <div key={index} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                        <span className="text-muted-foreground">
+                          {item?.caption || `Media ${index + 1}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -783,32 +1089,23 @@ export function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="faq" className="space-y-6">
-          {(additionalData?.faq && 'questions' in additionalData.faq && Array.isArray(additionalData.faq.questions) && additionalData.faq.questions.length > 0) ? (
+          {(additionalData?.faq && Array.isArray(additionalData.faq) && additionalData.faq.length > 0) ? (
             <Card>
               <CardHeader>
                 <CardTitle>Frequently Asked Questions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {additionalData.faq.questions.map((item, index: number) => {
-                  const questions = additionalData.faq && 'questions' in additionalData.faq ? additionalData.faq.questions : [];
-                  return (
-                    <div key={index}>
-                      <h4 className="font-medium mb-2">
-                        {item && typeof item === 'object' && 'question' in item 
-                          ? (item as { question: string }).question 
-                          : `Question ${index + 1}`
-                        }
-                      </h4>
-                      <p className="text-muted-foreground">
-                        {item && typeof item === 'object' && 'answer' in item 
-                          ? (item as { answer: string }).answer 
-                          : 'No answer provided'
-                        }
-                      </p>
-                      {index < questions.length - 1 && <Separator className="mt-4" />}
-                    </div>
-                  );
-                })}
+                {additionalData.faq.map((item: any, index: number) => (
+                  <div key={index}>
+                    <h4 className="font-medium mb-2">
+                      {item?.question || `Question ${index + 1}`}
+                    </h4>
+                    <p className="text-muted-foreground">
+                      {item?.answer || 'No answer provided'}
+                    </p>
+                    {index < (additionalData.faq as any[]).length - 1 && <Separator className="mt-4" />}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           ) : (
@@ -874,47 +1171,69 @@ export function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
-          {(additionalData?.members && 'team' in additionalData.members && Array.isArray(additionalData.members.team) && additionalData.members.team.length > 0) ? (
+          {(additionalData?.members && 
+            (((additionalData.members as any).pubkeys && Array.isArray((additionalData.members as any).pubkeys) && (additionalData.members as any).pubkeys.length > 0) ||
+             ('team' in additionalData.members && Array.isArray(additionalData.members.team) && additionalData.members.team.length > 0))) ? (
             <Card>
               <CardHeader>
                 <CardTitle>Project Team</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Meet the team members working on this project
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {additionalData.members.team.map((member, index: number) => (
-                    <div key={index} className="flex items-start space-x-4 p-4 border rounded-lg">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={
-                          member && typeof member === 'object' && 'picture' in member 
-                            ? (member as { picture?: string }).picture 
-                            : undefined
-                        } />
-                        <AvatarFallback>
-                          {member && typeof member === 'object' && 'name' in member 
-                            ? ((member as { name?: string }).name?.charAt(0) || 'T')
-                            : 'T'
-                          }
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h4 className="font-medium">
-                          {member && typeof member === 'object' && 'name' in member 
-                            ? ((member as { name?: string }).name || 'Team Member')
-                            : 'Team Member'
-                          }
-                        </h4>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {member && typeof member === 'object' && 'role' in member 
-                            ? (member as { role?: string }).role 
-                            : 'Team Member'
-                          }
-                        </p>
-                        {member && typeof member === 'object' && 'bio' in member && (member as { bio?: string }).bio && (
-                          <p className="text-sm">{(member as { bio: string }).bio}</p>
-                        )}
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Display team members from pubkeys with clean profile layout */}
+                  {(additionalData.members as any).pubkeys && Array.isArray((additionalData.members as any).pubkeys) && 
+                    (additionalData.members as any).pubkeys.map((pubkey: string, index: number) => (
+                      <TeamMemberProfile key={pubkey} pubkey={pubkey} index={index} />
+                    ))
+                  }
+                  
+                  {/* Display team members from team array (if available) */}
+                  {'team' in additionalData.members && Array.isArray(additionalData.members.team) && 
+                    additionalData.members.team.map((member: any, index: number) => (
+                      <div key={`team-${index}`} className="flex items-start space-x-4 p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage src={
+                            member && typeof member === 'object' && 'picture' in member 
+                              ? (member as { picture?: string }).picture 
+                              : undefined
+                          } />
+                          <AvatarFallback className="text-lg">
+                            {member && typeof member === 'object' && 'name' in member 
+                              ? ((member as { name?: string }).name?.charAt(0) || 'T')
+                              : 'T'
+                            }
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <h4 className="font-semibold text-lg">
+                              {member && typeof member === 'object' && 'name' in member 
+                                ? ((member as { name?: string }).name || 'Team Member')
+                                : 'Team Member'
+                              }
+                            </h4>
+                            <p className="text-sm text-primary font-medium">
+                              {member && typeof member === 'object' && 'role' in member 
+                                ? (member as { role?: string }).role 
+                                : 'Team Member'
+                              }
+                            </p>
+                          </div>
+                          {member && typeof member === 'object' && 'bio' in member && (member as { bio?: string }).bio && (
+                            <p className="text-sm text-foreground/80">{(member as { bio: string }).bio}</p>
+                          )}
+                          {member && typeof member === 'object' && 'contact' in member && (member as { contact?: string }).contact && (
+                            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                              <span>Contact: {(member as { contact: string }).contact}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  }
                 </div>
               </CardContent>
             </Card>
@@ -923,9 +1242,11 @@ export function ProjectDetailPage() {
               <CardContent className="py-12 text-center">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-medium mb-2">Team Information</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   Team information will be available once provided by the creator.
                 </p>
+                
+
               </CardContent>
             </Card>
           )}
