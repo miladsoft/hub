@@ -1,19 +1,16 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AngorProjectCard } from '@/components/AngorProjectCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProjectsStatistics } from '@/components/ProjectsStatistics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  TrendingUp, 
-  Target, 
-  Users, 
-  Zap, 
   RotateCcw,
   X,
   Filter,
-  SearchX
+  SearchX,
+  Target
 } from 'lucide-react';
 import {
   Select,
@@ -23,12 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAngorProjects } from '@/hooks/useAngorProjects';
-import { useNetwork } from '@/contexts/NetworkContext';
 import { useIndexerCacheInvalidation } from '@/hooks/useIndexerCacheInvalidation';
 import type { FilterType, SortType, NostrProfile } from '@/types/angor';
 
 export function ExplorePage() {
-  const { network } = useNetwork();
   const [searchParams, setSearchParams] = useSearchParams();
   const scrollTriggerRef = useRef<HTMLDivElement>(null);
   
@@ -153,35 +148,6 @@ export function ExplorePage() {
 
   const projects = filteredProjects();
 
-  // Calculate statistics from all available data sources (matching Angular sample logic)
-  const statistics = useMemo(() => ({
-    totalProjects: allProjects.length,
-    activeProjects: allProjects.filter(p => {
-      const now = Date.now() / 1000;
-      const startDate = p.details?.startDate;
-      const expiryDate = p.details?.expiryDate;
-      const stats = p.stats;
-      return (!startDate || startDate <= now) && 
-             (!expiryDate || expiryDate > now) && 
-             (!stats || stats.completionPercentage < 100);
-    }).length,
-    totalFunding: allProjects.reduce((sum, p) => {
-      // Use the same logic as Angular sample: stats.amountInvested or fallback
-      const amountInvested = p.stats?.amountInvested ?? p.amountInvested ?? 0;
-      return sum + amountInvested;
-    }, 0),
-    totalInvestors: allProjects.reduce((sum, p) => {
-      // Use the same logic as Angular sample: stats.investorCount or fallback
-      const investorCount = p.stats?.investorCount ?? p.investorCount ?? 0;
-      return sum + investorCount;
-    }, 0),
-    totalTargetAmount: allProjects.reduce((sum, p) => {
-      // Use the same logic as Angular sample: details.targetAmount (from Nostr) or fallback
-      const targetAmount = p.details?.targetAmount ?? p.targetAmount ?? 0;
-      return sum + targetAmount;
-    }, 0)
-  }), [allProjects]);
-
 
 
   // Infinite scroll effect
@@ -206,20 +172,6 @@ export function ExplorePage() {
       }
     };
   }, [hasNextPage, isFetchingNextPage, loadMore]);
-
-  const formatBTC = (sats: number) => {
-    return `${(sats / 100000000).toFixed(2)} BTC`;
-  };
-
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
-    }
-    return amount.toString();
-  };
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -406,62 +358,12 @@ export function ExplorePage() {
           </div>
         ) : (
           <>
-            {/* Statistics Overview */}
-            {!isLoading && allProjects.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-                    <Target className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{statistics.totalProjects}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {statistics.activeProjects} active
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Funding</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{formatBTC(statistics.totalFunding)}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatAmount(statistics.totalFunding)} sats
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Investors</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{statistics.totalInvestors}</div>
-                    <p className="text-xs text-muted-foreground">
-                      backing projects
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Network</CardTitle>
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{network}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Bitcoin {network === 'mainnet' ? 'Mainnet' : 'Testnet'}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {/* Enhanced Statistics Overview using new component */}
+            <ProjectsStatistics 
+              projects={allProjects} 
+              filteredProjects={projects}
+              isLoading={isLoading}
+            />
 
             {/* Projects Grid */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
