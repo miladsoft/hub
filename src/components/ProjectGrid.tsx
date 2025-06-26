@@ -105,7 +105,7 @@ function EmptyState() {
               </div>
               <p className="text-muted-foreground">
                 No projects found on Bitcoin {network === 'mainnet' ? 'Mainnet' : 'Testnet'}. 
-                Try adjusting your filters or switch networks to explore more projects.
+                Try adjusting your filters or switch networks to discover more projects.
               </p>
             </div>
           </div>

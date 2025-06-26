@@ -210,18 +210,6 @@ export function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-12 pb-16 relative overflow-hidden">
-        <div className="relative z-10 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 text-foreground">
-            Explore Projects
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8 leading-relaxed">
-            Discover innovative projects and become part of the decentralized finance revolution.
-          </p>
-        </div>
-      </section>
-
       {/* Search and Filters */}
       <div className="sticky top-4 z-30 px-4 mb-12">
         <div className="max-w-6xl mx-auto bg-card/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-border">

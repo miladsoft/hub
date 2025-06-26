@@ -5,6 +5,9 @@ import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CalendarDays, Users, Target, Bitcoin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useSettings } from '@/hooks/useSettings';
+import { formatNumber, formatBitcoinAmount } from '@/lib/formatCurrency';
 import { useNostrProjectByEventId, useProjectMetadata } from '@/services/nostrService';
 import { useAngorProjectStats, useAngorProject } from '@/hooks/useAngorProjects';
 import type { AngorProject } from '@/types/angor';
@@ -15,6 +18,8 @@ interface AngorProjectCardProps {
 
 export function AngorProjectCard({ project }: AngorProjectCardProps) {
   const navigate = useNavigate();
+  const { network } = useNetwork();
+  const { settings } = useSettings();
   
   // Fetch detailed project info from Nostr - try both event IDs
   const eventId = project.nostrEventId || project.trxId;
@@ -151,31 +156,18 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
     upcoming: 'Upcoming',
   }[status];
 
-  const formatBTC = (sats: number | undefined) => {
-    if (!sats || sats === 0) return '0.00 BTC';
-    return `${(sats / 100000000).toFixed(2)} BTC`;
-  };
-
-  const formatBTCWithFallback = (sats: number | undefined, fallbackText: string = 'Loading...') => {
+  const formatBTCWithNetwork = (sats: number | undefined, fallbackText: string = 'Loading...') => {
     if (sats === undefined || sats === null) return fallbackText;
     if (sats === 0) return 'TBD'; // To Be Determined - when target is not set yet
-    return `${(sats / 100000000).toFixed(2)} BTC`;
-  };
-
-  const formatAmount = (amount: number | undefined) => {
-    if (!amount || amount === 0) return '0';
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
-    }
-    return amount.toString();
-  };
-
-  const formatAmountWithFallback = (amount: number | undefined, fallbackText: string = 'TBD') => {
-    if (!amount || amount === 0) return fallbackText;
-    return formatAmount(amount);
+    
+    // Use the user's currency preference
+    const formatted = formatBitcoinAmount(sats, { 
+      network, 
+      currency: settings.defaultCurrency,
+      precision: settings.defaultCurrency === 'btc' ? 8 : 0
+    });
+    
+    return formatted;
   };
 
   const handleViewProject = () => {
@@ -221,7 +213,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
         <div className="absolute top-3 right-3">
           <Badge variant="secondary" className="bg-black/60 text-white border-none text-xs shadow-md backdrop-blur-sm">
             <Bitcoin className="w-3 h-3 mr-1" />
-            {formatBTCWithFallback(currentTargetAmount, 'TBD')}
+            {formatBTCWithNetwork(currentTargetAmount, 'TBD')}
           </Badge>
         </div>
       </div>
@@ -264,8 +256,8 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
           </div>
           <Progress value={fundingProgress} className="h-3 bg-gray-200 dark:bg-gray-700" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{formatBTC(currentAmountInvested)} raised</span>
-            <span>Goal: {formatBTCWithFallback(currentTargetAmount, 'TBD')}</span>
+            <span>{formatBTCWithNetwork(currentAmountInvested, '0')} raised</span>
+            <span>Goal: {formatBTCWithNetwork(currentTargetAmount, 'TBD')}</span>
           </div>
         </div>
 
@@ -275,7 +267,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Users className="w-4 h-4" />
             </div>
-            <div className="text-sm font-semibold">{formatAmount(currentInvestorCount)}</div>
+            <div className="text-sm font-semibold">{formatNumber(currentInvestorCount || 0)}</div>
             <div className="text-xs text-muted-foreground">Investors</div>
           </div>
           
@@ -283,7 +275,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
             <div className="flex items-center justify-center text-muted-foreground mb-1">
               <Target className="w-4 h-4" />
             </div>
-            <div className="text-sm font-semibold">{formatAmountWithFallback(currentTargetAmount, 'TBD')}</div>
+            <div className="text-sm font-semibold">{formatBTCWithNetwork(currentTargetAmount, 'TBD')}</div>
             <div className="text-xs text-muted-foreground">Target</div>
           </div>
           

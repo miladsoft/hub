@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useIndexer } from '@/contexts/IndexerContext';
 import { useRelay } from '@/hooks/useRelay';
+import { useSettings } from '@/hooks/useSettings';
 
 export function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -52,37 +53,13 @@ export function SettingsPage() {
     testRelayConnection
   } = useRelay();
   
-  const [settings, setSettings] = useState({
-    // Notification Settings
-    projectUpdates: true,
-    fundingAlerts: true,
-    newProjects: false,
-    emailNotifications: false,
-    
-    // Privacy Settings
-    publicProfile: true,
-    showFundingActivity: true,
-    allowDirectMessages: true,
-    
-    // Platform Settings
-    defaultCurrency: 'sats',
-    language: 'en',
-    autoConnect: true
-  });
-
+  const { settings, updateSetting } = useSettings();
+  
   const [newRelay, setNewRelay] = useState('');
   const [newIndexer, setNewIndexer] = useState('');
   const [testingIndexers, setTestingIndexers] = useState<Set<string>>(new Set());
   const [testingRelays, setTestingRelays] = useState<Set<string>>(new Set());
   const [resettingRelays, setResettingRelays] = useState(false);
-
-  const updateSetting = (key: string, value: boolean | string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    toast({
-      title: "Setting updated",
-      description: "Your preferences have been saved",
-    });
-  };
 
   const addNewRelay = async () => {
     if (!newRelay.trim()) return;
@@ -367,7 +344,7 @@ export function SettingsPage() {
                   </div>
                   <Select 
                     value={settings.defaultCurrency} 
-                    onValueChange={(value) => updateSetting('defaultCurrency', value)}
+                    onValueChange={(value: 'sats' | 'btc') => updateSetting('defaultCurrency', value)}
                   >
                     <SelectTrigger className="w-32">
                       <SelectValue />

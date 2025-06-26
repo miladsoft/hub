@@ -73,7 +73,9 @@ export function ProjectsStatistics({
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.formatted.totalRaised} BTC</div>
+            <div className="text-2xl font-bold">
+              {statistics.formatted.totalRaised} {network === 'mainnet' ? 'BTC' : 'TBTC'}
+            </div>
             <p className="text-xs text-muted-foreground">
               {statistics.formatted.totalRaisedShort} satoshis
             </p>
@@ -97,24 +99,31 @@ export function ProjectsStatistics({
         {/* Bitcoin Price */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bitcoin Price</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {network === 'mainnet' ? 'Bitcoin Price' : 'Bitcoin Testnet'}
+            </CardTitle>
             <Bitcoin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {priceLoading ? (
+            {network === 'testnet' ? (
+              <>
+                <div className="text-2xl font-bold">TBTC</div>
+                <p className="text-xs text-muted-foreground">Testnet mode</p>
+              </>
+            ) : priceLoading ? (
               <div className="text-2xl font-bold text-muted-foreground">Loading...</div>
             ) : priceError ? (
               <div className="text-2xl font-bold text-red-500">Error</div>
             ) : bitcoinPrice ? (
-              <div className="text-2xl font-bold">
-                ${bitcoinPrice.USD.toLocaleString()}
-              </div>
+              <>
+                <div className="text-2xl font-bold">
+                  ${bitcoinPrice.USD.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">Live price</p>
+              </>
             ) : (
               <div className="text-2xl font-bold text-muted-foreground">N/A</div>
             )}
-            <p className="text-xs text-muted-foreground">
-              {network === 'mainnet' ? 'Live price' : 'Testnet mode'}
-            </p>
           </CardContent>
         </Card>
       </div>

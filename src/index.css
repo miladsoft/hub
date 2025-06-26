@@ -166,3 +166,23 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+/* Custom Select Item Selection Color */
+.select-item-selected {
+  background-color: #013b34 !important;
+  color: white !important;
+}
+
+.select-item-selected:hover {
+  background-color: #024d41 !important;
+}
+
+/* Dark mode variant */
+.dark .select-item-selected {
+  background-color: #013b34 !important;
+  color: white !important;
+}
+
+.dark .select-item-selected:hover {
+  background-color: #024d41 !important;
+}

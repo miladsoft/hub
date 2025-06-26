@@ -8,11 +8,11 @@ import {
   Search, 
   Settings,
   User,
-  TrendingUp,
   LogOut
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
+import { useTheme } from '@/hooks/useTheme';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -31,9 +31,15 @@ export function Sidebar({ className = '' }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, metadata } = useCurrentUser();
-  const { logout } = useLoginActions();  const [showLogin, setShowLogin] = useState(false);  const navigation = [
+  const { logout } = useLoginActions();
+  const { theme } = useTheme();
+  const [showLogin, setShowLogin] = useState(false);
+
+  // Determine which logo to use based on theme
+  const logoSrc = theme === 'light' ? '/logo-name-dark.svg' : '/logo-name-light.svg';  
+  const navigation = [
     { name: 'Home', href: '/', icon: Home, description: 'Discover projects' },
-    { name: 'Explore', href: '/explore', icon: Search, description: 'Find projects' },
+    { name: 'Discover', href: '/explore', icon: Search, description: 'Find projects' },
     { name: 'Settings', href: '/settings', icon: Settings, description: 'App settings' },
   ];
 
@@ -48,18 +54,23 @@ export function Sidebar({ className = '' }: SidebarProps) {
   const userPicture = metadata?.picture;  return (
     <div className={`flex flex-col bg-gradient-to-b from-muted/40 to-muted/20 border-r border-border/50 ${className}`} style={{ height: '100%' }}>      {/* Header - Fixed at top */}
       <div className="p-6 border-b border-border/30" style={{ flexShrink: 0 }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary via-primary/90 to-accent rounded-xl flex items-center justify-center shadow-lg">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Grants Platform
-              </h1>
-              <p className="text-xs text-muted-foreground">Grant Management</p>
-            </div>
-          </div>          
+        <div className="flex items-center justify-center mb-4">
+          <img 
+            src={logoSrc} 
+            alt="Logo" 
+            className="h-12 w-auto"
+            onError={(e) => {
+              // Fallback to text if logo fails to load
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          {/* Fallback text (hidden by default) */}
+          <div className="hidden">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Grants Platform
+            </h1>
+          </div>
         </div>
       </div>
 

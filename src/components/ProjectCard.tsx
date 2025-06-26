@@ -6,6 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CalendarDays, Users, Target, TrendingUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useSettings } from '@/hooks/useSettings';
+import { formatProjectAmount } from '@/lib/formatCurrency';
 import type { IndexedProject } from '@/types/angor';
 
 interface ProjectCardProps {
@@ -14,6 +17,9 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project }: ProjectCardProps) {
   const navigate = useNavigate();
+  const { network } = useNetwork();
+  const { settings } = useSettings();
+  
   const {
     project: angorProject,
     stats,
@@ -31,19 +37,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
     upcoming: 'bg-yellow-500',
   }[stats.status];
 
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}K`;
-    }
-    return amount.toString();
-  };
-
-  const formatBTC = (sats: number) => {
-    return `${(sats / 100000000).toFixed(8)} BTC`;
-  };
+  // Format amounts based on network and currency settings
+  const raisedAmount = formatProjectAmount(stats.amountInvested, network, settings.defaultCurrency);
+  const goalAmount = formatProjectAmount(stats.targetAmount, network, settings.defaultCurrency);
 
   const timeRemaining = projectData.expiryDate 
     ? formatDistanceToNow(new Date(projectData.expiryDate * 1000), { addSuffix: true })
@@ -112,11 +108,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <span>Raised</span>
             </div>
             <div className="font-medium">
-              {formatBTC(stats.amountInvested)}
+              {raisedAmount.primary}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {formatAmount(stats.amountInvested)} sats
-            </div>
+            {raisedAmount.secondary && (
+              <div className="text-xs text-muted-foreground">
+                {raisedAmount.secondary}
+              </div>
+            )}
           </div>
           <div className="space-y-1">
             <div className="flex items-center space-x-1 text-muted-foreground">
@@ -124,11 +122,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <span>Goal</span>
             </div>
             <div className="font-medium">
-              {formatBTC(stats.targetAmount)}
+              {goalAmount.primary}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {formatAmount(stats.targetAmount)} sats
-            </div>
+            {goalAmount.secondary && (
+              <div className="text-xs text-muted-foreground">
+                {goalAmount.secondary}
+              </div>
+            )}
           </div>
         </div>
 

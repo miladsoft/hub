@@ -25,14 +25,12 @@ import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } fro
 import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates, useNostrProjectByEventId } from '@/services/nostrService';
 import { useIndexerProject } from '@/hooks/useIndexerProject';
 import { useDenyList } from '@/services/denyService';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useSettings } from '@/hooks/useSettings';
+import { formatBitcoinAmount } from '@/lib/formatCurrency';
 import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
 
-// Helper functions outside of component to avoid React hooks issues
-const formatBTC = (sats: number | undefined) => {
-  if (!sats) return '0.00000000 BTC';
-  return `${(sats / 100000000).toFixed(8)} BTC`;
-};
-
+// Helper function outside of component to avoid React hooks issues
 const formatAmount = (amount: number | undefined) => {
   if (!amount || amount === 0) return '0';
   if (amount >= 1000000) {
@@ -61,6 +59,20 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [investmentAmount, setInvestmentAmount] = useState('');
+
+  // Get network and settings for currency formatting
+  const { network } = useNetwork();
+  const { settings } = useSettings();
+
+  // Network-aware Bitcoin formatting function
+  const formatBTC = (sats: number | undefined) => {
+    if (!sats) return `0.00000000 ${network === 'testnet' ? 'TBTC' : 'BTC'}`;
+    return formatBitcoinAmount(sats, { 
+      network, 
+      currency: settings.defaultCurrency,
+      precision: 8
+    });
+  };
 
   // Check if project is denied - Always call hooks first
   const denyService = useDenyList();
@@ -215,7 +227,7 @@ export function ProjectDetailPage() {
         className="flex items-center space-x-2"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span>Back to Explore</span>
+        <span>Back to Discover</span>
       </Button>
 
       {/* Project Header */}
@@ -582,10 +594,12 @@ export function ProjectDetailPage() {
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Target Amount</Label>
                     <div className="text-sm text-muted-foreground">
-                      {(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project?.targetAmount) ? 
-                        `${formatBTC(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project.targetAmount)} (${(nostrProjectData?.projectDetails?.targetAmount || additionalData?.project.targetAmount).toLocaleString()} sats)` : 
-                        (stats?.targetAmount ? `${formatBTC(stats.targetAmount)}` : 'N/A')
-                      }
+                      {(() => {
+                        const targetAmount = nostrProjectData?.projectDetails?.targetAmount || additionalData?.project?.targetAmount;
+                        return targetAmount ? 
+                          `${formatBTC(targetAmount)} (${targetAmount.toLocaleString()} sats)` : 
+                          (stats?.targetAmount ? `${formatBTC(stats.targetAmount)}` : 'N/A');
+                      })()}
                     </div>
                   </div>
 
@@ -1046,7 +1060,7 @@ function ProjectNotFound() {
             The project you're looking for doesn't exist or has been removed.
           </p>
           <Button onClick={() => navigate('/explore')}>
-            Back to Explore
+            Back to Discover
           </Button>
         </CardContent>
       </Card>

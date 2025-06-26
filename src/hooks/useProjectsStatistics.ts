@@ -3,6 +3,8 @@ import { useQueries } from '@tanstack/react-query';
 import { AngorIndexerService } from '@/services/angorIndexer';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCurrentIndexer } from '@/hooks/useCurrentIndexer';
+import { useSettings } from '@/hooks/useSettings';
+import { formatBitcoinAmount } from '@/lib/formatCurrency';
 import type { AngorProject } from '@/types/angor';
 
 interface UseProjectsStatisticsOptions {
@@ -44,6 +46,7 @@ export function useProjectsStatistics({
   enabled = true 
 }: UseProjectsStatisticsOptions): ProjectsStatistics {
   const { network } = useNetwork();
+  const { settings } = useSettings();
   const { primaryUrl } = useCurrentIndexer();
   const indexerService = new AngorIndexerService();
 
@@ -79,8 +82,12 @@ export function useProjectsStatistics({
     };
 
     const formatBTC = (sats: number): string => {
-      const btc = sats / 100000000;
-      return btc.toFixed(8);
+      return formatBitcoinAmount(sats, { 
+        network, 
+        currency: settings.defaultCurrency,
+        showSymbol: false,
+        precision: 8
+      });
     };
 
     const formatLargeNumber = (num: number): string => {
@@ -223,7 +230,7 @@ export function useProjectsStatistics({
       isLoading,
       error
     };
-  }, [statsQueries, projects]);
+  }, [statsQueries, projects, network, settings.defaultCurrency]);
 
   return statistics;
 }
