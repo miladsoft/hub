@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +61,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
               </h1>
               <p className="text-xs text-muted-foreground">Bitcoin Crowdfunding</p>
             </div>
-          </div>          <ThemeToggle />
+          </div>          
         </div>
       </div>
 

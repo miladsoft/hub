@@ -12,6 +12,8 @@ interface IndexerContextType {
   getPrimaryUrl: (network: 'mainnet' | 'testnet') => string;
   resetToDefaults: () => void;
   testIndexerConnection: (url: string) => Promise<boolean>;
+  saveConfiguration: () => void;
+  loadConfiguration: () => void;
 }
 
 const IndexerContext = createContext<IndexerContextType | undefined>(undefined);
@@ -126,6 +128,22 @@ export function IndexerProvider({ children }: IndexerProviderProps) {
     return false;
   };
 
+  const saveConfiguration = () => {
+    localStorage.setItem('angor:indexer-config', JSON.stringify(indexers));
+  };
+
+  const loadConfiguration = () => {
+    const saved = localStorage.getItem('angor:indexer-config');
+    if (saved) {
+      try {
+        const config = JSON.parse(saved) as IndexerConfig;
+        setIndexersState(config);
+      } catch (error) {
+        console.error('Failed to load indexer configuration:', error);
+      }
+    }
+  };
+
   const value = {
     indexers,
     setIndexers,
@@ -135,6 +153,8 @@ export function IndexerProvider({ children }: IndexerProviderProps) {
     getPrimaryUrl,
     resetToDefaults,
     testIndexerConnection,
+    saveConfiguration,
+    loadConfiguration,
   };
 
   return (

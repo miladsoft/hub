@@ -9,6 +9,7 @@ export interface AngorProject {
   founderKey: string;
   createdOnBlock: number;
   trxId: string;
+  totalInvestmentsCount?: number;
   metadata?: ProjectMetadata;
   stats?: ProjectStats;
   details?: ProjectDetails;
@@ -200,3 +201,22 @@ export const ANGOR_RELAY_POOL = {
     'wss://relay2.angor.io'
   ]
 } as const;
+
+export interface NostrProjectDetails {
+  founderKey: string;
+  founderRecoveryKey: string;
+  projectIdentifier: string;
+  nostrPubKey: string;
+  startDate: number;
+  penaltyDays: number;
+  expiryDate: number;
+  targetAmount: number;
+  stages: Array<{
+    amountToRelease: number;
+    releaseDate: number;
+  }>;
+  projectSeeders: {
+    threshold: number;
+    secretHashes: string[];
+  };
+}

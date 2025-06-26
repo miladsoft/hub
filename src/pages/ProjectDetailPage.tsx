@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,8 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
 import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates } from '@/services/nostrService';
+import { useIndexerProject } from '@/hooks/useIndexerProject';
+import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -35,16 +37,58 @@ export function ProjectDetailPage() {
   const { data: project, isLoading: projectLoading } = useAngorProject(projectId);
   const { data: stats, isLoading: statsLoading } = useAngorProjectStats(projectId);
   const { data: investments, isLoading: investmentsLoading } = useAngorProjectInvestments(projectId);
+  const { data: indexerProject } = useIndexerProject(projectId);
   
   // Fetch Nostr data
-  const { data: projectMetadata } = useProjectMetadata(project?.nostrPubKey);
-  const { data: additionalData } = useNostrAdditionalData(project?.nostrPubKey);
+  const { data: projectMetadata } = useProjectMetadata(project?.nostrPubKey || indexerProject?.nostrPubKey);
+  const { data: additionalData } = useNostrAdditionalData(project?.nostrPubKey || indexerProject?.nostrPubKey);
   const { data: updates } = useProjectUpdates(projectId);
 
-  // Extract profile data from projectMetadata
-  const profile = projectMetadata?.profile as any;
-  const projectData = projectMetadata?.project as any;
-  const mediaData = projectMetadata?.media as any;
+  // Extract profile data from projectMetadata with type safety
+  const profile = projectMetadata?.profile as NostrProfile | undefined;
+  const projectData = projectMetadata?.project as ProjectMetadata | undefined;
+  const mediaData = projectMetadata?.media as ProjectMedia | undefined;
+
+  // Type-safe helper to check if media has gallery
+  const hasGallery = (media: unknown): media is ProjectMedia & { gallery: NonNullable<ProjectMedia['gallery']> } => {
+    return media != null && 
+           typeof media === 'object' && 
+           'gallery' in media && 
+           Array.isArray((media as ProjectMedia).gallery) && 
+           (media as ProjectMedia).gallery!.length > 0;
+  };
+
+  // Get gallery items from either source with type safety
+  const getGalleryItems = () => {
+    if (hasGallery(mediaData)) {
+      return mediaData.gallery;
+    }
+    if (additionalData?.media && hasGallery(additionalData.media)) {
+      return additionalData.media.gallery;
+    }
+    return [];
+  };
+
+  // Debug logging - Enhanced for Nostr project data and indexer data
+  useEffect(() => {
+    if (projectMetadata) {
+      console.log('🔍 ProjectDetailPage - projectMetadata loaded:', projectMetadata);
+      console.log('📋 Profile data:', profile);
+      console.log('🎯 Project data:', projectData);
+      console.log('🖼️ Media data:', mediaData);
+    }
+    if (additionalData) {
+      console.log('🌐 Additional Nostr data:', additionalData);
+      console.log('🏗️ Additional Project data (3030/30078):', additionalData?.project);
+    }
+    if (indexerProject) {
+      console.log('🏛️ Indexer project data:', indexerProject);
+      console.log('🔗 Indexer fields - founderKey:', indexerProject.founderKey);
+      console.log('🧱 Indexer fields - createdOnBlock:', indexerProject.createdOnBlock);
+      console.log('📜 Indexer fields - trxId:', indexerProject.trxId);
+      console.log('🆔 Indexer fields - nostrEventId:', indexerProject.nostrEventId);
+    }
+  }, [projectMetadata, profile, projectData, mediaData, additionalData, indexerProject]);
 
   const isLoading = projectLoading || statsLoading || investmentsLoading;
 
@@ -78,15 +122,16 @@ export function ProjectDetailPage() {
       const date = new Date(timestamp * 1000);
       if (isNaN(date.getTime())) return 'Invalid date';
       return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
+    } catch {
       return 'Invalid date';
     }
   };
 
-  const completionPercentage = Math.min(stats.completionPercentage, 100);
+  // Safe data extraction with fallbacks from all sources
+  const completionPercentage = Math.min(stats?.completionPercentage || 0, 100);
   
-  const timeRemaining = project.details?.expiryDate
-    ? safeFormatDistanceToNow(project.details.expiryDate)
+  const timeRemaining = (project?.details?.expiryDate || additionalData?.project?.expiryDate)
+    ? safeFormatDistanceToNow(project?.details?.expiryDate || additionalData?.project?.expiryDate)
     : 'No deadline';
 
   const statusColor = {
@@ -94,15 +139,26 @@ export function ProjectDetailPage() {
     completed: 'bg-blue-500',
     expired: 'bg-red-500',
     upcoming: 'bg-yellow-500',
-  }[stats.status];
+  }[stats?.status || 'active'];
+
+  // Get target amount from any available source (prioritize indexer, then stats, then additional data, then Nostr data)
+  const targetAmount = indexerProject?.targetAmount || 
+                      indexerProject?.details?.targetAmount ||
+                      stats?.targetAmount || 
+                      additionalData?.project?.targetAmount || 
+                      project?.details?.targetAmount || 
+                      (additionalData?.project as any)?.targetAmount ||
+                      0;
+  const amountInvested = indexerProject?.amountInvested || stats?.amountInvested || 0;
+  const investorCount = indexerProject?.investorCount || stats?.investorCount || 0;
 
   return (
     <div className="min-h-screen">
       {/* Project Banner */}
-      {(projectData?.banner || profile?.banner || (mediaData as any)?.banner) && (
+      {(projectData?.banner || profile?.banner) && (
         <div className="relative h-64 w-full">
           <img 
-            src={projectData?.banner || profile?.banner || (mediaData as any)?.banner}
+            src={projectData?.banner || profile?.banner}
             alt="Project banner"
             className="w-full h-full object-cover"
           />
@@ -129,7 +185,7 @@ export function ProjectDetailPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <Badge variant="secondary" className={`${statusColor} text-white`}>
-                {stats.status.toUpperCase()}
+                {(stats?.status || 'ACTIVE').toUpperCase()}
               </Badge>
               <div className="flex items-center space-x-2">
                 <Button variant="ghost" size="sm">
@@ -142,12 +198,12 @@ export function ProjectDetailPage() {
             </div>
 
             <h1 className="text-4xl font-bold">
-              {projectData?.name || profile?.name || project.projectIdentifier}
+              {projectData?.name || profile?.name || additionalData?.project?.projectIdentifier || project?.projectIdentifier || 'Unnamed Project'}
             </h1>
 
             <div className="flex items-center space-x-4">
               <Avatar className="h-12 w-12">
-                <AvatarImage src={projectData?.picture || profile?.picture || (mediaData as any)?.picture} />
+                <AvatarImage src={projectData?.picture || profile?.picture} />
                 <AvatarFallback>
                   {(projectData?.name || profile?.name)?.charAt(0) || 'A'}
                 </AvatarFallback>
@@ -184,27 +240,27 @@ export function ProjectDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {formatBTC(stats.amountInvested)}
+                    {formatBTC(amountInvested)}
                   </div>
                   <div className="text-sm text-muted-foreground">Raised</div>
                   <div className="text-xs text-muted-foreground">
-                    {formatAmount(stats.amountInvested)} sats
+                    {formatAmount(amountInvested)} sats
                   </div>
                 </div>
 
                 <div className="text-center">
                   <div className="text-2xl font-bold">
-                    {formatBTC(stats.targetAmount)}
+                    {formatBTC(targetAmount)}
                   </div>
                   <div className="text-sm text-muted-foreground">Goal</div>
                   <div className="text-xs text-muted-foreground">
-                    {formatAmount(stats.targetAmount)} sats
+                    {formatAmount(targetAmount)} sats
                   </div>
                 </div>
 
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {stats.investorCount}
+                    {investorCount}
                   </div>
                   <div className="text-sm text-muted-foreground">Investors</div>
                 </div>
@@ -218,6 +274,66 @@ export function ProjectDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Advanced Statistics */}
+          {indexerProject && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Advanced Statistics</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {indexerProject.totalInvestmentsCount || indexerProject.investorCount || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Investments</div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {indexerProject.penaltyDays || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Penalty Days</div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-indigo-600">
+                      {indexerProject.createdOnBlock?.toLocaleString() || 'N/A'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Created Block</div>
+                  </div>
+
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-cyan-600">
+                      {stats?.amountSpentSoFarByFounder ? formatBTC(stats.amountSpentSoFarByFounder) : '0 BTC'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Founder Spent</div>
+                  </div>
+                </div>
+
+                {(stats?.amountInPenalties || stats?.countInPenalties) && (
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-3 text-red-600">Penalty Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-xl font-bold text-red-600">
+                          {formatBTC(stats?.amountInPenalties || 0)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Amount in Penalties</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xl font-bold text-red-600">
+                          {stats?.countInPenalties || 0}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Penalty Count</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Investment Sidebar */}
@@ -230,7 +346,7 @@ export function ProjectDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {stats.status === 'active' ? (
+              {(stats?.status === 'active' || !stats?.status) ? (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="amount">Investment Amount (BTC)</Label>
@@ -282,15 +398,17 @@ export function ProjectDetailPage() {
 
       {/* Project Details Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="updates">Updates</TabsTrigger>
           <TabsTrigger value="faq">FAQ</TabsTrigger>
           <TabsTrigger value="investors">Investors</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="raw-data">Raw Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          {/* Project Description */}
           <Card>
             <CardHeader>
               <CardTitle>Project Description</CardTitle>
@@ -304,21 +422,223 @@ export function ProjectDetailPage() {
             </CardContent>
           </Card>
 
-          {(((mediaData as any)?.gallery && Array.isArray((mediaData as any).gallery) && (mediaData as any).gallery.length > 0) || 
-            (additionalData && additionalData.media && 'gallery' in additionalData.media && Array.isArray(additionalData.media.gallery) && additionalData.media.gallery.length > 0)) && (
+          {/* Project Technical Details */}
+          {(project?.details || additionalData?.project || indexerProject) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Project Identifier</Label>
+                    <div className="text-sm text-muted-foreground font-mono">
+                      {indexerProject?.projectIdentifier || project?.projectIdentifier || additionalData?.project?.projectIdentifier || 'N/A'}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Nostr Public Key</Label>
+                    <div className="text-sm text-muted-foreground font-mono break-all">
+                      {indexerProject?.nostrPubKey || project?.nostrPubKey || additionalData?.project?.nostrPubKey || 'N/A'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Founder Key</Label>
+                    <div className="text-sm text-muted-foreground font-mono break-all">
+                      {indexerProject?.founderKey || additionalData?.project?.founderKey || 'N/A'}
+                    </div>
+                  </div>
+
+                  {indexerProject?.createdOnBlock && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Created on Block</Label>
+                      <div className="text-sm text-muted-foreground">
+                        {indexerProject.createdOnBlock.toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+
+                  {indexerProject?.trxId && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Transaction ID</Label>
+                      <div className="text-sm text-muted-foreground font-mono break-all">
+                        {indexerProject.trxId}
+                      </div>
+                    </div>
+                  )}
+
+                  {indexerProject?.nostrEventId && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Nostr Event ID</Label>
+                      <div className="text-sm text-muted-foreground font-mono break-all">
+                        {indexerProject.nostrEventId}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Founder Recovery Key</Label>
+                    <div className="text-sm text-muted-foreground font-mono break-all">
+                      {additionalData?.project?.founderRecoveryKey || 'N/A'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Start Date</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {additionalData?.project?.startDate ? 
+                        new Date(additionalData?.project.startDate * 1000).toLocaleDateString('fa-IR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 
+                        (project?.details?.startDate ? 
+                          new Date(project.details.startDate * 1000).toLocaleDateString('fa-IR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          }) : 'N/A'
+                        )
+                      }
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Expiry Date</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {additionalData?.project?.expiryDate ? 
+                        new Date(additionalData?.project.expiryDate * 1000).toLocaleDateString('fa-IR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : 
+                        (project?.details?.expiryDate ? 
+                          new Date(project.details.expiryDate * 1000).toLocaleDateString('fa-IR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          }) : 'N/A'
+                        )
+                      }
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Target Amount</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {additionalData?.project?.targetAmount ? 
+                        `${formatBTC(additionalData?.project.targetAmount)} (${additionalData?.project.targetAmount.toLocaleString()} sats)` : 
+                        (stats?.targetAmount ? `${formatBTC(stats.targetAmount)}` : 'N/A')
+                      }
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Penalty Days</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {indexerProject?.penaltyDays || additionalData?.project?.penaltyDays ? 
+                        `${indexerProject?.penaltyDays || additionalData?.project?.penaltyDays} days` : 'N/A'
+                      }
+                    </div>
+                  </div>
+
+                  {indexerProject?.totalInvestmentsCount && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Total Investments Count</Label>
+                      <div className="text-sm text-muted-foreground">
+                        {indexerProject.totalInvestmentsCount.toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Project Stages */}
+          {additionalData?.project?.stages && Array.isArray(additionalData?.project.stages) && additionalData?.project.stages.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Stages (Milestones)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {additionalData?.project.stages.map((stage: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <div className="font-medium">Stage {index + 1}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Release Date: {stage.releaseDate ? 
+                            new Date(stage.releaseDate * 1000).toLocaleDateString('fa-IR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            }) : 'N/A'
+                          }
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600">
+                          {stage.amountToRelease}% of funds
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {additionalData?.project.targetAmount ? 
+                            formatBTC((additionalData?.project.targetAmount * stage.amountToRelease) / 100) : 'N/A'
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Project Seeders Information */}
+          {additionalData?.project?.projectSeeders && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Seeders Configuration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Threshold</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {additionalData?.project.projectSeeders.threshold || 0}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Secret Hashes Count</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {additionalData?.project.projectSeeders.secretHashes ? 
+                        additionalData?.project.projectSeeders.secretHashes.length : 0
+                      }
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Media Gallery */}
+          {(hasGallery(mediaData) || hasGallery(additionalData?.media)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Media Gallery</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {((mediaData as any)?.gallery || additionalData?.media?.gallery || []).map((item: any, index: number) => (
+                  {getGalleryItems().map((item, index) => (
                     <div key={index} className="aspect-square bg-muted rounded-lg flex items-center justify-center">
                       <span className="text-muted-foreground">
-                        {item && typeof item === 'object' && 'caption' in item 
-                          ? (item as { caption?: string }).caption || `Media ${index + 1}`
-                          : `Media ${index + 1}`
-                        }
+                        {item?.caption || `Media ${index + 1}`}
                       </span>
                     </div>
                   ))}
@@ -506,7 +826,141 @@ export function ProjectDetailPage() {
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="raw-data" className="space-y-6">
+          {/* Raw Nostr Data Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw Nostr Data (Kind 3030 - Project Info)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {additionalData?.project ? (
+                <div className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto">
+                  <pre className="text-sm">
+                    {JSON.stringify(additionalData?.project, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No Kind 3030 project data available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Raw Additional Data Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw Additional Data (Kind 30078)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {additionalData ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-2">FAQ Data:</h4>
+                    <div className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto">
+                      <pre className="text-sm">
+                        {JSON.stringify(additionalData.faq, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Media Data:</h4>
+                    <div className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto">
+                      <pre className="text-sm">
+                        {JSON.stringify(additionalData.media, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-2">Members Data:</h4>
+                    <div className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto">
+                      <pre className="text-sm">
+                        {JSON.stringify(additionalData.members, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No Kind 30078 additional data available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Raw Project Metadata Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw Project Metadata</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {projectMetadata ? (
+                <div className="bg-slate-900 text-green-400 p-4 rounded-lg overflow-auto">
+                  <pre className="text-sm">
+                    {JSON.stringify(projectMetadata, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No project metadata available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Raw Indexer Data Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw Indexer Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {indexerProject ? (
+                <div className="bg-slate-900 text-blue-400 p-4 rounded-lg overflow-auto">
+                  <pre className="text-sm">
+                    {JSON.stringify(indexerProject, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No indexer data available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Raw Stats Data Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Raw Stats Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stats ? (
+                <div className="bg-slate-900 text-yellow-400 p-4 rounded-lg overflow-auto">
+                  <pre className="text-sm">
+                    {JSON.stringify(stats, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    No stats data available
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

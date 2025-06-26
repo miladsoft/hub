@@ -103,7 +103,7 @@ export function useNostrProjectDetails(eventId: string | undefined) {
 }
 
 /**
- * Hook to fetch additional project data (FAQ, media, members)
+ * Hook to fetch additional project data (FAQ, media, members, project details)
  */
 export function useNostrAdditionalData(pubkey: string | undefined) {
   const { nostr } = useNostr();
@@ -111,41 +111,59 @@ export function useNostrAdditionalData(pubkey: string | undefined) {
   return useQuery({
     queryKey: ['nostr-additional-data', pubkey],
     queryFn: async () => {
-      if (!pubkey) return { faq: {}, media: {}, members: {} };
+      if (!pubkey) return { faq: {}, media: {}, members: {}, project: {} };
 
       return queryWithRetry(async () => {
-        const signal = AbortSignal.timeout(5000);
-        const events = await nostr.query([{
-          kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA],
-          authors: [pubkey],
-          limit: 100
-        }], { signal });
+        const signal = AbortSignal.timeout(8000);
+        
+        // Query both kind 30078 (additional data) and kind 3030 (project info)
+        const events = await nostr.query([
+          {
+            kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA], // 30078
+            authors: [pubkey],
+            limit: 100
+          },
+          {
+            kinds: [ANGOR_EVENT_KINDS.PROJECT_INFO], // 3030
+            authors: [pubkey],
+            limit: 10
+          }
+        ], { signal });
 
         let faq: ProjectFAQ = { questions: [] };
         let media: ProjectMedia = {};
         let members: ProjectMembers = { team: [] };
+        let project: any = {};
 
         events.forEach(event => {
-          const dTag = event.tags.find(tag => tag[0] === 'd');
-          if (dTag) {
-            const tagValue = dTag[1];
-            try {
-              const content = JSON.parse(event.content);
-              
-              if (tagValue === 'angor:faq' || tagValue === 'faq') {
-                faq = content;
-              } else if (tagValue === 'angor:media' || tagValue === 'media') {
-                media = content;
-              } else if (tagValue === 'angor:members' || tagValue === 'members') {
-                members = content;
+          try {
+            if (event.kind === ANGOR_EVENT_KINDS.PROJECT_INFO) {
+              // Kind 3030 - Project information
+              project = JSON.parse(event.content);
+            } else if (event.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA) {
+              // Kind 30078 - Additional data with d tags
+              const dTag = event.tags.find(tag => tag[0] === 'd');
+              if (dTag) {
+                const tagValue = dTag[1];
+                const content = JSON.parse(event.content);
+                
+                if (tagValue === 'angor:faq' || tagValue === 'faq') {
+                  faq = content;
+                } else if (tagValue === 'angor:media' || tagValue === 'media') {
+                  media = content;
+                } else if (tagValue === 'angor:members' || tagValue === 'members') {
+                  members = content;
+                } else if (tagValue === 'angor:project' || tagValue === 'project') {
+                  project = { ...project, ...content };
+                }
               }
-            } catch (error) {
-              console.error(`Error parsing ${tagValue} data:`, error);
             }
+          } catch (error) {
+            console.error(`Error parsing event content (kind ${event.kind}):`, error);
           }
         });
 
-        return { faq, media, members };
+        return { faq, media, members, project };
       }, `Additional data for ${pubkey}`);
     },
     enabled: !!pubkey,
@@ -232,6 +250,7 @@ export function useNostrProjects() {
 
 /**
  * Hook to fetch detailed project information by eventId (kinds 3030 and 30078)
+ * First fetches the initial event to get the author, then fetches all project data from that author
  */
 export function useNostrProjectByEventId(eventId: string | undefined) {
   const { nostr } = useNostr();
@@ -242,51 +261,79 @@ export function useNostrProjectByEventId(eventId: string | undefined) {
       if (!eventId) return null;
 
       return queryWithRetry(async () => {
-        const signal = AbortSignal.timeout(8000);
+        const signal = AbortSignal.timeout(10000);
         
-        // Query for both project info kinds
-        const events = await nostr.query([
+        // Step 1: Get the initial event to find the author
+        const initialEvents = await nostr.query([{
+          ids: [eventId],
+          limit: 1
+        }], { signal });
+
+        if (initialEvents.length === 0) {
+          return null;
+        }
+
+        const initialEvent = initialEvents[0];
+        const authorPubkey = initialEvent.pubkey;
+
+        // Step 2: Fetch ALL project data from this author (both kinds 3030 and 30078)
+        const allEvents = await nostr.query([
           {
             kinds: [ANGOR_EVENT_KINDS.PROJECT_INFO], // 3030
-            ids: [eventId],
-            limit: 1
+            authors: [authorPubkey],
+            limit: 10
           },
           {
-            kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA], // 30078  
-            ids: [eventId],
-            limit: 1
+            kinds: [ANGOR_EVENT_KINDS.ADDITIONAL_DATA], // 30078
+            authors: [authorPubkey],
+            limit: 50
           }
         ], { signal });
 
-        if (events.length > 0) {
-          try {
-            const projectEvent = events.find(e => e.kind === ANGOR_EVENT_KINDS.PROJECT_INFO);
-            const additionalEvent = events.find(e => e.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA);
-            
-            let projectDetails = {};
-            let additionalData = {};
-            
-            if (projectEvent) {
-              projectDetails = JSON.parse(projectEvent.content);
-            }
-            
-            if (additionalEvent) {
-              additionalData = JSON.parse(additionalEvent.content);
-            }
+        // Step 3: Process and merge all project data
+        let projectDetails: any = {};
+        let additionalData: any = {};
+        let mergedProjectData: any = {};
 
-            return {
-              projectDetails,
-              additionalData,
-              nostrPubKey: projectEvent?.content ? JSON.parse(projectEvent.content).nostrPubKey : null,
-              eventId: eventId,
-              created_at: projectEvent?.created_at || additionalEvent?.created_at
-            };
+        for (const event of allEvents) {
+          try {
+            const content = JSON.parse(event.content);
+            
+            if (event.kind === ANGOR_EVENT_KINDS.PROJECT_INFO) {
+              // Kind 3030 - Project information
+              projectDetails = { ...projectDetails, ...content };
+              mergedProjectData = { ...mergedProjectData, ...content };
+            } else if (event.kind === ANGOR_EVENT_KINDS.ADDITIONAL_DATA) {
+              // Kind 30078 - Additional data
+              const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
+              
+              if (dTag === 'angor:project' || dTag === 'project') {
+                // Tagged project data
+                additionalData = { ...additionalData, ...content };
+                mergedProjectData = { ...mergedProjectData, ...content };
+              } else if (!dTag && content.projectIdentifier) {
+                // Untagged project data that contains projectIdentifier (main project details)
+                additionalData = { ...additionalData, ...content };
+                mergedProjectData = { ...mergedProjectData, ...content };
+                console.log(`Found untagged project data with targetAmount: ${content.targetAmount}`);
+              }
+            }
           } catch (error) {
-            console.error('Error parsing project data:', error);
-            return null;
+            console.error(`Error parsing event content (kind ${event.kind}):`, error);
           }
         }
-        return null;
+
+        return {
+          projectDetails: mergedProjectData, // Merged data from both kinds
+          additionalData,
+          nostrPubKey: authorPubkey,
+          eventId: eventId,
+          created_at: initialEvent.created_at,
+          // Ensure we have the essential fields available
+          targetAmount: mergedProjectData.targetAmount || projectDetails.targetAmount,
+          name: mergedProjectData.name || projectDetails.name,
+          about: mergedProjectData.about || projectDetails.about
+        };
       }, `Project data for eventId ${eventId}`);
     },
     enabled: !!eventId,
