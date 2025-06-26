@@ -57,9 +57,9 @@ export function Sidebar({ className = '' }: SidebarProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Angor Hub
+                Grants Platform
               </h1>
-              <p className="text-xs text-muted-foreground">Bitcoin Crowdfunding</p>
+              <p className="text-xs text-muted-foreground">Grant Management</p>
             </div>
           </div>          
         </div>

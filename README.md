@@ -1,6 +1,6 @@
-# 🚀 Angor Hub - Bitcoin Crowdfunding Platform
+# 🚀 Grants Platform - Bitcoin Crowdfunding Platform
 
-Angor Hub is a cutting-edge, decentralized Bitcoin crowdfunding platform built on the Nostr protocol. It empowers project creators to raise funds directly from supporters while enabling contributors to discover, support, and track innovative projects through transparent Bitcoin-based funding.
+Grants Platform is a cutting-edge, decentralized Bitcoin crowdfunding platform built on the Nostr protocol. It empowers project creators to raise funds directly from supporters while enabling contributors to discover, support, and track innovative projects through transparent Bitcoin-based funding.
 
 ## ✨ Features
 
@@ -47,7 +47,7 @@ Angor Hub is a cutting-edge, decentralized Bitcoin crowdfunding platform built o
 
 ## 🎨 Design Philosophy
 
-Angor Hub features a modern, professional design centered around the Angor brand colors (Very Dark Teal, Dark Cyan, and Light Steel Green). The interface emphasizes:
+Grants Platform features a modern, professional design centered around the Angor brand colors (Very Dark Teal, Dark Cyan, and Light Steel Green). The interface emphasizes:
 - **Clarity**: Clean layouts that highlight project information and funding progress
 - **Trust**: Professional appearance that builds confidence in the platform
 - **Accessibility**: Full keyboard navigation and screen reader support

@@ -1,8 +1,8 @@
 ````instructions
-# Angor Hub - Decentralized Bitcoin Crowdfunding Platform
+# Grants Platform - Decentralized Bitcoin Crowdfunding Platform
 
 ## Project Overview
-Angor Hub is a decentralized Bitcoin crowdfunding platform that leverages Nostr protocol for project discovery and Bitcoin for secure escrow funding. This React application provides a modern, responsive interface for exploring, creating, and funding projects on the Bitcoin network.
+Grants Platform is a decentralized Bitcoin crowdfunding platform that leverages Nostr protocol for project discovery and Bitcoin for secure escrow funding. This React application provides a modern, responsive interface for exploring, creating, and funding projects on the Bitcoin network.
 
 ## Key Features
 - **Real-time Project Data**: Aggregates data from Angor Indexer API and Nostr Network
@@ -787,5 +787,5 @@ Whenever you are finished modifying code, you must run the **test** script using
 
 ---
 
-*This document serves as the comprehensive guide for implementing and maintaining the Angor Hub React application. It should be updated as the project evolves and new patterns emerge.*
+*This document serves as the comprehensive guide for implementing and maintaining the Grants Platform React application. It should be updated as the project evolves and new patterns emerge.*
 ````

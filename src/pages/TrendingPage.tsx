@@ -94,7 +94,7 @@ export function TrendingPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Trending</h1>
-            <p className="text-muted-foreground">Discover what's hot on Angor Hub</p>
+            <p className="text-muted-foreground">Discover what's hot on Grants Platform</p>
           </div>
         </div>
         

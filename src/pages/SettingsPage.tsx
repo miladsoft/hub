@@ -300,7 +300,7 @@ export function SettingsPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Customize your Angor Hub experience</p>
+            <p className="text-muted-foreground">Customize your Grants Platform experience</p>
           </div>
         </div>
 
