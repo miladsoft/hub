@@ -4,13 +4,6 @@
 ## Project Overview
 Angor Hub is a decentralized Bitcoin crowdfunding platform that leverages Nostr protocol for project discovery and Bitcoin for secure escrow funding. This React application provides a modern, responsive interface for exploring, creating, and funding projects on the Bitcoin network.
 
-## Key Features
-- **Real-time Project Data**: Aggregates data from Angor Indexer API and Nostr Network
-- **Multi-Source Integration**: Combines data from multiple relays and APIs
-- **Progress Tracking**: Real-time loading progress with comprehensive error handling
-- **Parallel Data Fetching**: Optimized performance with Promise.all and retry mechanisms
-- **Comprehensive Project Details**: Stats, investments, profiles, FAQ, media, and team members
-
 ## Technology Stack
 
 ### Core Technologies
@@ -23,15 +16,6 @@ Angor Hub is a decentralized Bitcoin crowdfunding platform that leverages Nostr 
 - **React Router**: For client-side routing with BrowserRouter and ScrollToTop functionality
 - **TanStack Query**: For data fetching, caching, and state management
 - **Bitcoin Integration**: @scure/btc-signer for Bitcoin operations
-
-### Data Sources
-- **Angor Indexer API**: `https://explorer.angor.io/api/query/Angor/`
-- **Nostr Relay Pool**: Multiple relays for decentralized data
-  - `wss://relay.damus.io`
-  - `wss://relay.primal.net`
-  - `wss://nos.lol`
-  - `wss://relay.angor.io`
-  - `wss://relay2.angor.io`
 
 ### Key Dependencies
 ```json

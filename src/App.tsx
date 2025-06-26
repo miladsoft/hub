@@ -10,6 +10,7 @@ import { Toaster as Sonner, Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
+import { NetworkProvider } from '@/contexts/NetworkContext';
 import AppRouter from './AppRouter';
 import type { AppConfig } from "./contexts/AppContext";
 
@@ -44,20 +45,23 @@ const presetRelays = [
 export function App() {
   return (
     <UnheadProvider head={head}>
-      <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
-        <QueryClientProvider client={queryClient}>
-          <NostrLoginProvider storageKey='nostr:login'>
-            <NostrProvider>              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <Suspense>
-                  <AppRouter />
-                </Suspense>
-              </TooltipProvider>
-            </NostrProvider>
-          </NostrLoginProvider>
-        </QueryClientProvider>
-      </AppProvider>
+      <NetworkProvider>
+        <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
+          <QueryClientProvider client={queryClient}>
+            <NostrLoginProvider storageKey='nostr:login'>
+              <NostrProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <Suspense>
+                    <AppRouter />
+                  </Suspense>
+                </TooltipProvider>
+              </NostrProvider>
+            </NostrLoginProvider>
+          </QueryClientProvider>
+        </AppProvider>
+      </NetworkProvider>
     </UnheadProvider>
   );
 }

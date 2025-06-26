@@ -1,307 +1,236 @@
 import { useState } from 'react';
+import { ProjectGrid } from '@/components/ProjectGrid';
+import { ProjectFiltersComponent } from '@/components/ProjectFilters';
+import { LoadingProgress } from '@/components/LoadingProgress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
-import { 
-  Search, 
-  Target, 
-  Users, 
-  Clock,
-  Bitcoin
-} from 'lucide-react';
-
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  category: string;
-  raised: number;
-  goal: number;
-  progress: number;
-  backers: number;
-  daysLeft: number;
-  creator: {
-    name: string;
-    avatar: string;
-  };
-}
-
-interface Creator {
-  id: number;
-  name: string;
-  description: string;
-  avatar: string;
-  followers: number;
-  projects: number;
-  totalRaised: number;
-}
-
-const categories = [
-  { id: 'all', label: 'All Projects', icon: Target },
-  { id: 'technology', label: 'Technology', icon: Target },
-  { id: 'education', label: 'Education', icon: Target },
-  { id: 'environment', label: 'Environment', icon: Target },
-  { id: 'infrastructure', label: 'Infrastructure', icon: Target },
-];
-
-const sampleData = {
-  projects: [
-    {
-      id: 1,
-      title: "Solar Energy Grid",
-      description: "Decentralized solar energy network for rural communities",
-      category: "Environment",
-      raised: 45000,
-      goal: 100000,
-      progress: 45,
-      backers: 89,
-      daysLeft: 22,
-      creator: {
-        name: "GreenTech Solutions",
-        avatar: "GT"
-      }
-    },
-    {
-      id: 2,
-      title: "Open Hardware Platform",
-      description: "Building accessible computing hardware for education",
-      category: "Technology", 
-      raised: 72000,
-      goal: 120000,
-      progress: 60,
-      backers: 156,
-      daysLeft: 15,
-      creator: {
-        name: "EduTech Collective",
-        avatar: "EC"
-      }
-    }
-  ] as Project[],
-  
-  creators: [
-    {
-      id: 1,
-      name: "InnovateLab",
-      description: "Building the future with open-source technology",
-      avatar: "IL",
-      followers: 1420,
-      projects: 8,
-      totalRaised: 250000
-    },
-    {
-      id: 2,
-      name: "GreenFuture Initiative",
-      description: "Sustainable solutions for environmental challenges",
-      avatar: "GF",
-      followers: 896,
-      projects: 5,
-      totalRaised: 180000
-    }
-  ] as Creator[]
-};
+import { Button } from '@/components/ui/button';
+import { Search, TrendingUp, Target, Users, Zap, Bitcoin } from 'lucide-react';
+import { useAngorProjects, useFilteredProjects } from '@/hooks/useAngorData';
+import { useNetwork } from '@/contexts/NetworkContext';
+import type { ProjectFilters } from '@/types/angor';
 
 export function ExplorePage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [activeTab, setActiveTab] = useState<'projects' | 'creators'>('projects');
-
-  const filteredProjects = sampleData.projects.filter(project => {
-    const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || 
-                           project.category.toLowerCase() === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const { network } = useNetwork();
+  const [filters, setFilters] = useState<ProjectFilters>({});
+  
+  const { 
+    projects: allProjects, 
+    isLoading, 
+    error, 
+    progress 
+  } = useAngorProjects({ 
+    limit: 50,
+    enableAutoRefresh: true 
   });
 
-  const filteredCreators = sampleData.creators.filter(creator =>
-    creator.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    creator.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const {
+    projects: filteredProjects,
+    statistics,
+    count: filteredCount
+  } = useFilteredProjects(allProjects, filters);
+
+  const formatBTC = (sats: number) => {
+    return `${(sats / 100000000).toFixed(2)} BTC`;
+  };
+
+  const formatAmount = (amount: number) => {
+    if (amount >= 1000000) {
+      return `${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `${(amount / 1000).toFixed(1)}K`;
+    }
+    return amount.toString();
+  };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Explore Projects</h1>
-        <p className="text-muted-foreground mb-6">Discover innovative projects and support creators</p>
-        
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search projects and creators..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2"
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      {/* Page Header */}
+      <div className="text-center space-y-4">
+        <div className="flex justify-center items-center space-x-2 mb-2">
+          <Badge 
+            variant={network === 'mainnet' ? 'default' : 'secondary'}
+            className={`text-sm px-3 py-1 ${
+              network === 'mainnet' 
+                ? 'bg-orange-500 hover:bg-orange-600' 
+                : 'bg-green-500 hover:bg-green-600'
+            }`}
+          >
+            <Bitcoin className="h-4 w-4 mr-1" />
+            {network === 'mainnet' ? 'Bitcoin Mainnet' : 'Bitcoin Testnet'}
+          </Badge>
+        </div>
+        <h1 className="text-4xl font-bold tracking-tight">
+          Explore Projects
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Discover innovative Bitcoin-funded projects from creators around the world. 
+          Support the future of decentralized crowdfunding on {network === 'mainnet' ? 'Bitcoin Mainnet' : 'Bitcoin Testnet'}.
+        </p>
+      </div>
+
+      {/* Statistics Overview */}
+      {!isLoading && allProjects.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{statistics.totalProjects}</div>
+              <p className="text-xs text-muted-foreground">
+                {statistics.activeProjects} active
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Funding</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatBTC(statistics.totalFunding)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatAmount(statistics.totalFunding)} sats raised
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Investors</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{statistics.totalInvestors}</div>
+              <p className="text-xs text-muted-foreground">
+                Supporting projects
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg. Funding</CardTitle>
+              <Zap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatBTC(statistics.averageFunding)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Per project
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Quick Filter Badges */}
+      {!isLoading && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={!filters.status || filters.status === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters({ ...filters, status: 'all' })}
+          >
+            All Projects
+          </Button>
+          <Button
+            variant={filters.status === 'active' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters({ ...filters, status: 'active' })}
+          >
+            Active
+            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+              {statistics.activeProjects}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.status === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters({ ...filters, status: 'completed' })}
+          >
+            Completed
+            <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
+              {statistics.completedProjects}
+            </Badge>
+          </Button>
+          <Button
+            variant={filters.sortBy === 'funding' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters({ ...filters, sortBy: 'funding' })}
+          >
+            <TrendingUp className="h-4 w-4 mr-1" />
+            Most Funded
+          </Button>
+          <Button
+            variant={filters.sortBy === 'newest' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilters({ ...filters, sortBy: 'newest' })}
+          >
+            <Zap className="h-4 w-4 mr-1" />
+            Newest
+          </Button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Filters Sidebar */}
+        <div className="lg:col-span-1">
+          <ProjectFiltersComponent
+            filters={filters}
+            onFiltersChange={setFilters}
+            totalCount={allProjects.length}
+            filteredCount={filteredCount}
+            className="sticky top-8"
           />
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-6">
-          <Button
-            variant={activeTab === 'projects' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('projects')}
-            className="flex items-center gap-2"
-          >
-            <Target className="w-4 h-4" />
-            Projects
-          </Button>
-          <Button
-            variant={activeTab === 'creators' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('creators')}
-            className="flex items-center gap-2"
-          >
-            <Users className="w-4 h-4" />
-            Creators
-          </Button>
+        {/* Projects Grid */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Results Header */}
+          {!isLoading && allProjects.length > 0 && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Search className="h-5 w-5 text-muted-foreground" />
+                <span className="text-lg font-medium">
+                  {filteredCount === allProjects.length 
+                    ? `${filteredCount} Projects` 
+                    : `${filteredCount} of ${allProjects.length} Projects`
+                  }
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {network}
+                </Badge>
+              </div>
+              {filters.search && (
+                <div className="text-sm text-muted-foreground">
+                  Results for "{filters.search}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <LoadingProgress progress={progress} />
+          )}
+
+          {/* Projects Grid */}
+          <ProjectGrid
+            projects={filteredProjects}
+            isLoading={isLoading}
+            error={error}
+          />
         </div>
-
-        {/* Category Filters (for projects) */}
-        {activeTab === 'projects' && (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory(category.id)}
-                className="flex items-center gap-2"
-              >
-                <category.icon className="w-4 h-4" />
-                {category.label}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Results */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {activeTab === 'projects' ? (
-          filteredProjects.length > 0 ? (
-            filteredProjects.map((project) => (
-              <Card key={project.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="outline">{project.category}</Badge>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Clock className="w-4 h-4 mr-1" />
-                      {project.daysLeft} days left
-                    </div>
-                  </div>
-                  <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {project.description}
-                  </p>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">{project.progress}%</span>
-                    </div>
-                    <Progress value={project.progress} className="h-2" />
-                    
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="text-lg font-bold text-primary flex items-center gap-1">
-                          <Bitcoin className="w-4 h-4" />
-                          {project.raised.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          of {project.goal.toLocaleString()} sats goal
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{project.backers}</p>
-                        <p className="text-xs text-muted-foreground">backers</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="w-6 h-6">
-                          <AvatarFallback className="text-xs">
-                            {project.creator.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm text-muted-foreground">
-                          {project.creator.name}
-                        </span>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        View Project
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No projects found</h3>
-              <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-            </div>
-          )
-        ) : (
-          filteredCreators.length > 0 ? (
-            filteredCreators.map((creator) => (
-              <Card key={creator.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="w-16 h-16">
-                      <AvatarFallback className="text-lg font-bold">
-                        {creator.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-1">{creator.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {creator.description}
-                      </p>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-center mb-4">
-                        <div>
-                          <p className="text-sm font-bold">{creator.followers}</p>
-                          <p className="text-xs text-muted-foreground">followers</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{creator.projects}</p>
-                          <p className="text-xs text-muted-foreground">projects</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold flex items-center justify-center gap-1">
-                            <Bitcoin className="w-3 h-3" />
-                            {(creator.totalRaised / 1000).toFixed(0)}K
-                          </p>
-                          <p className="text-xs text-muted-foreground">sats raised</p>
-                        </div>
-                      </div>
-                      
-                      <Button size="sm" className="w-full">
-                        View Profile
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No creators found</h3>
-              <p className="text-muted-foreground">Try adjusting your search criteria</p>
-            </div>
-          )
-        )}
       </div>
     </div>
   );
 }
-
-export default ExplorePage;
