@@ -7,8 +7,6 @@ import {
   TrendingUp, 
   Users, 
   Bitcoin, 
-  Shield, 
-  Globe,
   ArrowRight,
   Target,
   Clock,
@@ -16,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { Link } from 'react-router-dom';
 
 export function HomePage() {
   const { user } = useCurrentUser();
@@ -112,21 +111,6 @@ export function HomePage() {
             The decentralized Bitcoin crowdfunding platform powered by Nostr. 
             Fund innovative projects, support creators, and build the future with complete transparency and security.
           </p>
-          
-          <div className="flex items-center justify-center gap-4 mb-12">
-            <Badge variant="secondary" className="px-4 py-2">
-              <Shield className="w-4 h-4 mr-2" />
-              Secure Bitcoin Escrow
-            </Badge>
-            <Badge variant="secondary" className="px-4 py-2">
-              <Globe className="w-4 h-4 mr-2" />
-              Decentralized & Censorship-Resistant
-            </Badge>
-            <Badge variant="secondary" className="px-4 py-2">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Transparent Funding
-            </Badge>
-          </div>
 
           {!user ? (
             <div className="flex flex-col items-center gap-4">
@@ -137,12 +121,16 @@ export function HomePage() {
             </div>
           ) : (
             <div className="flex justify-center gap-4">
-              <Button size="lg" className="bg-[#086c81] hover:bg-[#022229] text-white">
-                Explore Projects
-                <ArrowRight className="w-4 h-4 ml-2" />
+              <Button asChild size="lg" className="bg-[#086c81] hover:bg-[#054e5a] text-white hover:text-white transition-colors">
+                <Link to="/explore">
+                  Explore Projects
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline">
-                Start a Project
+              <Button asChild size="lg" variant="outline" className="border-[#086c81] text-[#086c81] hover:bg-[#086c81] hover:text-white transition-colors">
+                <Link to="/explore">
+                  Start a Project
+                </Link>
               </Button>
             </div>
           )}
@@ -237,8 +225,10 @@ export function HomePage() {
                           {project.creator.name}
                         </span>
                       </div>
-                      <Button size="sm" variant="outline">
-                        View Project
+                      <Button asChild size="sm" variant="outline" className="border-[#086c81] text-[#086c81] hover:bg-[#086c81] hover:text-white">
+                        <Link to="/explore">
+                          View Project
+                        </Link>
                       </Button>
                     </div>
                   </div>
@@ -248,9 +238,11 @@ export function HomePage() {
           </div>
 
           <div className="text-center mt-12">
-            <Button size="lg" variant="outline">
-              View All Projects
-              <ArrowRight className="w-4 h-4 ml-2" />
+            <Button asChild size="lg" variant="outline" className="border-[#086c81] text-[#086c81] hover:bg-[#086c81] hover:text-white">
+              <Link to="/explore">
+                View All Projects
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -303,25 +295,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Call to Action */}
-      <section className="py-16 px-6 bg-gradient-to-r from-primary to-accent">
-        <div className="max-w-4xl mx-auto text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Ready to Build the Future?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join thousands of innovators and contributors on the world's first 
-            decentralized Bitcoin crowdfunding platform.
-          </p>
-          
-          <div className="flex justify-center gap-4">
-            <Button size="lg" variant="secondary">
-              Start Your Project
-            </Button>
-            <Button size="lg" variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-primary">
-              Explore Projects
-            </Button>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
