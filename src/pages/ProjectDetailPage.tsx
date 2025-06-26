@@ -520,7 +520,7 @@ export function ProjectDetailPage() {
                     <Label className="text-sm font-medium">Start Date</Label>
                     <div className="text-sm text-muted-foreground">
                       {(nostrProjectData?.projectDetails?.startDate || additionalData?.project?.startDate) ? 
-                        new Date((nostrProjectData?.projectDetails?.startDate || additionalData?.project.startDate) * 1000).toLocaleDateString('fa-IR', {
+                        new Date((nostrProjectData?.projectDetails?.startDate || additionalData?.project.startDate) * 1000).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -528,7 +528,7 @@ export function ProjectDetailPage() {
                           minute: '2-digit'
                         }) : 
                         (project?.details?.startDate ? 
-                          new Date(project.details.startDate * 1000).toLocaleDateString('fa-IR', {
+                          new Date(project.details.startDate * 1000).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -542,7 +542,7 @@ export function ProjectDetailPage() {
                     <Label className="text-sm font-medium">Expiry Date</Label>
                     <div className="text-sm text-muted-foreground">
                       {(nostrProjectData?.projectDetails?.expiryDate || additionalData?.project?.expiryDate) ? 
-                        new Date((nostrProjectData?.projectDetails?.expiryDate || additionalData?.project.expiryDate) * 1000).toLocaleDateString('fa-IR', {
+                        new Date((nostrProjectData?.projectDetails?.expiryDate || additionalData?.project.expiryDate) * 1000).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric',
@@ -550,7 +550,7 @@ export function ProjectDetailPage() {
                           minute: '2-digit'
                         }) : 
                         (project?.details?.expiryDate ? 
-                          new Date(project.details.expiryDate * 1000).toLocaleDateString('fa-IR', {
+                          new Date(project.details.expiryDate * 1000).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -606,7 +606,7 @@ export function ProjectDetailPage() {
                         <div className="font-medium">Stage {index + 1}</div>
                         <div className="text-sm text-muted-foreground">
                           Release Date: {stage.releaseDate ? 
-                            new Date(stage.releaseDate * 1000).toLocaleDateString('fa-IR', {
+                            new Date(stage.releaseDate * 1000).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'
