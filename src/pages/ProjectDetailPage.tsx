@@ -450,7 +450,35 @@ export function ProjectDetailPage() {
   }
 
   // Safe data extraction with fallbacks from all sources
-  const completionPercentage = Math.min(stats?.completionPercentage || 0, 100);
+  // Get target amount from any available source (prioritize indexer, then stats, then additional data, then Nostr data)
+  const targetAmount = indexerProject?.targetAmount || 
+                      indexerProject?.details?.targetAmount ||
+                      stats?.targetAmount || 
+                      additionalData?.project?.targetAmount || 
+                      project?.details?.targetAmount || 
+                      (additionalData?.project as any)?.targetAmount ||
+                      0;
+  const amountInvested = indexerProject?.amountInvested || stats?.amountInvested || 0;
+  const investorCount = indexerProject?.investorCount || stats?.investorCount || 0;
+
+  // Calculate completion percentage manually if stats don't provide it or if it's incorrect
+  const calculatedPercentage = targetAmount > 0 ? (amountInvested / targetAmount) * 100 : 0;
+  const completionPercentage = Math.min(
+    stats?.completionPercentage && stats.completionPercentage > 0 
+      ? stats.completionPercentage 
+      : calculatedPercentage, 
+    100
+  );
+
+  // Debug logging for funding progress
+  console.log('💰 Funding Progress Debug:', {
+    targetAmount,
+    amountInvested,
+    statsCompletionPercentage: stats?.completionPercentage,
+    calculatedPercentage: calculatedPercentage.toFixed(2) + '%',
+    finalCompletionPercentage: completionPercentage.toFixed(2) + '%',
+    investorCount
+  });
   
   const timeRemaining = (project?.details?.expiryDate || additionalData?.project?.expiryDate)
     ? safeFormatDistanceToNow(project?.details?.expiryDate || additionalData?.project?.expiryDate)
@@ -462,17 +490,6 @@ export function ProjectDetailPage() {
     expired: 'bg-red-500',
     upcoming: 'bg-yellow-500',
   }[stats?.status || 'active'];
-
-  // Get target amount from any available source (prioritize indexer, then stats, then additional data, then Nostr data)
-  const targetAmount = indexerProject?.targetAmount || 
-                      indexerProject?.details?.targetAmount ||
-                      stats?.targetAmount || 
-                      additionalData?.project?.targetAmount || 
-                      project?.details?.targetAmount || 
-                      (additionalData?.project as any)?.targetAmount ||
-                      0;
-  const amountInvested = indexerProject?.amountInvested || stats?.amountInvested || 0;
-  const investorCount = indexerProject?.investorCount || stats?.investorCount || 0;
 
   return (
     <div className="min-h-screen">
