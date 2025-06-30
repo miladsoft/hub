@@ -2,7 +2,7 @@
 # Grants Platform - Decentralized Bitcoin Crowdfunding Platform
 
 ## Project Overview
-Grants Platform is a decentralized Bitcoin crowdfunding platform that leverages Nostr protocol for project discovery and Bitcoin for secure escrow funding. This React application provides a modern, responsive interface for exploring, creating, and funding projects on the Bitcoin network.
+Grants Platform is a decentralized Bitcoin crowdfunding platform that leverages Nostr protocol for project discovery and Bitcoin for funding. This React application provides a modern, responsive interface for exploring, creating, and funding projects on the Bitcoin network.
 
 ## Key Features
 - **Real-time Project Data**: Aggregates data from Angor Indexer API and Nostr Network

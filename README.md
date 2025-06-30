@@ -4,9 +4,9 @@ Grants Platform is a cutting-edge, decentralized Bitcoin crowdfunding platform b
 
 ## ✨ Features
 
-### � Core Crowdfunding Features
+### 🟠 Core Crowdfunding Features
 - **Project Creation**: Creators can launch funding campaigns with clear goals, timelines, and milestones
-- **Bitcoin Funding**: Contributors support projects using Bitcoin with built-in escrow protection
+- **Bitcoin Funding**: Contributors support projects using Bitcoin with non-custodial, milestone-based custody 
 - **Milestone Tracking**: Progress tracking through verifiable milestones and updates
 - **Transparent Funding**: All transactions and project updates are publicly verifiable on Nostr
 
@@ -17,18 +17,18 @@ Grants Platform is a cutting-edge, decentralized Bitcoin crowdfunding platform b
 - **Event-Based Architecture**: All project data and updates stored as Nostr events
 
 ### 🔒 Security & Trust
-- **Bitcoin Escrow**: Funds held securely until milestone completion
+- **Non-custodial Bitcoin custody**: Funds are managed with milestone-based releases
 - **Nostr Authentication**: Secure login using Nostr key pairs (NIP-07)
 - **Transparent Operations**: All funding and project data publicly auditable
 - **Creator Verification**: NIP-05 verification for trusted project creators
 
-### � User Experience
+### 🟢 User Experience
 - **Modern Interface**: Clean, responsive design built with React and TailwindCSS
 - **Real-time Updates**: Live project updates and funding progress
 - **Project Discovery**: Advanced search and filtering for finding relevant projects
 - **Creator Profiles**: Detailed profiles showing creator history and reputation
 
-## � Technology Stack
+## 🛠 Technology Stack
 
 - **Frontend**: React 19.x with TypeScript
 - **Styling**: TailwindCSS with Angor brand theme

@@ -11,19 +11,19 @@ import { Link } from 'react-router-dom';
 export function HomePage() {
   const features = [
     {
-      title: "Decentralized Funding",
-      description: "Transparent grant distribution powered by Bitcoin and Nostr protocol",
-      icon: Target
-    },
-    {
-      title: "Secure Escrow",
-      description: "Built-in protection with milestone-based fund release",
+      title: "Decentralized Crowdfunding",
+      description: "Funds released in stages, always recoverable by investors.",
       icon: Shield
     },
     {
       title: "Instant Processing",
-      description: "Fast and efficient grant management with real-time updates",
+      description: "Fast and efficient grant management with real-time updates.",
       icon: Zap
+    },
+    {
+      title: "Transparent Discovery",
+      description: "Explore and support projects with full transparency via Nostr.",
+      icon: Target
     }
   ];
 
@@ -36,7 +36,7 @@ export function HomePage() {
             Grants Platform
           </h1>
           <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-            A simple, professional platform for grant management and funding, built on Bitcoin with Nostr integration.
+            A new era of Bitcoin crowdfunding—secure, transparent, and decentralized.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">

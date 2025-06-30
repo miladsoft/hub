@@ -701,10 +701,6 @@ export function ProjectDetailPage() {
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="flex items-center space-x-1">
                       <CheckCircle className="h-3 w-3 text-green-500" />
-                      <span>Secure Bitcoin escrow</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <CheckCircle className="h-3 w-3 text-green-500" />
                       <span>Milestone-based releases</span>
                     </div>
                     <div className="flex items-center space-x-1">
@@ -717,7 +713,7 @@ export function ProjectDetailPage() {
                         <span>Lightning zaps available</span>
                       </div>
                     )}
-                  </div>
+                    </div>
                 </>
               ) : (
                 <div className="text-center py-8">
