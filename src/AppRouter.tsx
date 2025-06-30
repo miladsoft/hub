@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { AngorLayout } from "./components/AngorLayout";
 import { useGlobalLoading } from "./hooks/useGlobalLoading";
-import HomePage from "./pages/HomePage";
+import { HomePage } from "./pages/HomePage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { ProjectDetailPage } from "./pages/ProjectDetailPage";
 import { ProjectDebugPage } from "./pages/ProjectDebugPage";
