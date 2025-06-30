@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -175,7 +175,7 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow group overflow-hidden p-0 h-full flex flex-col">
+    <Card className="min-h-[420px] hover:shadow-lg transition-shadow group overflow-hidden p-0 h-full flex flex-col">
       {/* Banner - Full width cover from top */}
       <div className="relative h-40 w-full">
         {projectBanner ? (
@@ -311,5 +311,38 @@ export function AngorProjectCard({ project }: AngorProjectCardProps) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+interface AngorProjectCardSkeletonProps {
+  count?: number;
+}
+
+export function AngorProjectCardSkeleton({ count = 1 }: AngorProjectCardSkeletonProps) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <Card key={i} className="animate-pulse p-0 overflow-hidden min-h-[480px]">
+          <div className="h-44 w-full bg-muted rounded-t-xl" />
+          <CardContent className="pt-7">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="h-12 w-12 bg-muted rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 w-36 bg-muted rounded" />
+                <div className="h-4 w-24 bg-muted rounded" />
+              </div>
+            </div>
+            <div className="h-4 w-full bg-muted rounded mb-4" />
+            <div className="h-4 w-4/5 bg-muted rounded mb-4" />
+            <div className="h-4 w-3/5 bg-muted rounded" />
+            <div className="flex items-center gap-2 mt-7">
+              <div className="h-5 w-16 bg-muted rounded" />
+              <div className="h-5 w-10 bg-muted rounded" />
+              <div className="h-5 w-10 bg-muted rounded" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </>
   );
 }

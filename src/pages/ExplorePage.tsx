@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AngorProjectCard } from '@/components/AngorProjectCard';
+import { AngorProjectCard, AngorProjectCardSkeleton } from '@/components/AngorProjectCard';
 import { ProjectsStatistics } from '@/components/ProjectsStatistics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -460,6 +460,13 @@ export function ExplorePage() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-20">
+        {/* Always show statistics at the top, even during loading or error */}
+        <ProjectsStatistics 
+          projects={allProjectsFiltered} 
+          filteredProjects={projects}
+          isLoading={isLoading}
+        />
+
         {error ? (
           <div className="text-center py-20 max-w-lg mx-auto">
             <div className="text-red-500 mb-4">
@@ -477,8 +484,8 @@ export function ExplorePage() {
             </Button>
           </div>
         ) : isLoading && !allProjectsFiltered.length ? (
-          <div className="flex justify-center items-center py-16">
-            <div className="w-14 h-14 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <AngorProjectCardSkeleton count={6} />
           </div>
         ) : projects.length === 0 ? (
           <div className="text-center py-20 max-w-lg mx-auto">
@@ -497,13 +504,6 @@ export function ExplorePage() {
           </div>
         ) : (
           <>
-            {/* Enhanced Statistics Overview using new component */}
-            <ProjectsStatistics 
-              projects={allProjectsFiltered} 
-              filteredProjects={projects}
-              isLoading={isLoading}
-            />
-
             {/* Projects Grid */}
             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {projects.map((project: AngorProject) => (

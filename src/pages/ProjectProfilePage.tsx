@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,34 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Carousel } from '@/components/ui/carousel';
-import { useToast } from '@/hooks/useToast';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useNostr } from '@/hooks/useNostr';
-import { useQuery } from '@tanstack/react-query';
 import { nip19 } from 'nostr-tools';
-import { ArrowLeft, Share2, Heart, MessageCircle, Bitcoin, Users, Zap, ExternalLink, Copy, Twitter, Facebook } from 'lucide-react';
+import { ArrowLeft, Share2, Bitcoin } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAngorProject, useAngorProjectStats, useAngorProjectInvestments } from '@/hooks/useAngorData';
 import { useProjectMetadata, useNostrAdditionalData, useProjectUpdates, useNostrProjectByEventId } from '@/services/nostrService';
 import { useIndexerProject } from '@/hooks/useIndexerProject';
-import { useDenyList } from '@/services/denyService';
-import { useNetwork } from '@/contexts/NetworkContext';
-import { useSettings } from '@/hooks/useSettings';
-import { formatBitcoinAmount } from '@/lib/formatCurrency';
+
 import { useAuthor } from '@/hooks/useAuthor';
 import type { NostrProfile, ProjectMetadata, ProjectMedia } from '@/types/angor';
 
-// Helper functions (formatAmount, safeFormatDistanceToNow, etc.)
-const formatAmount = (amount: number | undefined) => {
-  if (!amount || amount === 0) return '0';
-  if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
-  if (amount >= 1000) return `${(amount / 1000).toFixed(1)}K`;
-  return amount.toString();
-};
+
 const safeFormatDistanceToNow = (timestamp: number | undefined) => {
   if (!timestamp || timestamp <= 0) return 'Unknown time';
   try {
@@ -110,13 +95,6 @@ export function ProjectProfilePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const { user } = useCurrentUser();
-  const { mutate: publishEvent } = useNostrPublish();
-  const { toast } = useToast();
-  const { nostr } = useNostr();
-  const { network } = useNetwork();
-  const { settings } = useSettings();
-  const denyService = useDenyList();
   const { data: project, isLoading: projectLoading } = useAngorProject(projectId);
   const { data: stats, isLoading: statsLoading } = useAngorProjectStats(projectId);
   const { data: investments, isLoading: investmentsLoading } = useAngorProjectInvestments(projectId);
