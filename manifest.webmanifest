@@ -1,0 +1,25 @@
+{
+  "name": "Grants Platform - Bitcoin Crowdfunding Platform",
+  "short_name": "Grants Platform",
+  "description": "Decentralized Bitcoin crowdfunding platform powered by Nostr. Fund innovative projects and support creators with complete transparency and security.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#086c81",
+  "background_color": "#cbdde1",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "crowdfunding", "bitcoin"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
