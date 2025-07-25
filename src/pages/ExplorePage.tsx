@@ -175,33 +175,38 @@ export function ExplorePage() {
         let shouldInclude = false;
         
         switch (activeFilter) {
-          case 'active':
+          case 'active': {
             // Active: Project has started and not expired and not fully funded
             const hasStarted = !startDate || startDate <= now;
             const notExpired = !expiryDate || expiryDate > now;
             const notCompleted = completionPercentage < 100;
             shouldInclude = hasStarted && notExpired && notCompleted;
             break;
+          }
             
-          case 'upcoming':
+          case 'upcoming': {
             // Upcoming: Project hasn't started yet
             shouldInclude = startDate ? startDate > now : false;
             break;
+          }
             
-          case 'completed':
+          case 'completed': {
             // Completed: Project is fully funded (100% or more)
             shouldInclude = completionPercentage >= 100;
             break;
+          }
             
-          case 'expired':
+          case 'expired': {
             // Expired: Project has expired and not fully funded
             const hasExpired = expiryDate && expiryDate <= now;
             const stillNotCompleted = completionPercentage < 100;
             shouldInclude = Boolean(hasExpired && stillNotCompleted);
             break;
+          }
             
-          default:
+          default: {
             shouldInclude = true;
+          }
         }
 
         // Debug individual project filtering
@@ -289,7 +294,9 @@ export function ExplorePage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        // Only trigger if we have projects and there are more to load
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage && !isComplete) {
+          console.log('📜 Infinite scroll triggered - loading more projects');
           loadMore();
         }
       },
@@ -297,7 +304,7 @@ export function ExplorePage() {
     );
 
     const currentRef = scrollTriggerRef.current;
-    if (currentRef) {
+    if (currentRef && hasNextPage && !isComplete) {
       observer.observe(currentRef);
     }
 
@@ -306,7 +313,7 @@ export function ExplorePage() {
         observer.unobserve(currentRef);
       }
     };
-  }, [hasNextPage, isFetchingNextPage, loadMore]);
+  }, [hasNextPage, isFetchingNextPage, loadMore, isComplete]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -514,30 +521,53 @@ export function ExplorePage() {
               ))}
             </section>
 
-            {/* Load More */}
-            {!isComplete && (
+            {/* Load More / End State */}
+            {!isComplete && hasNextPage && (
               <>
                 {isFetchingNextPage ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
-                    <span className="ml-2 text-sm text-muted-foreground">Loading more projects...</span>
+                  <div className="flex justify-center items-center py-12">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                      <span className="text-sm text-muted-foreground font-medium">Loading more projects...</span>
+                    </div>
                   </div>
-                ) : hasNextPage ? (
+                ) : (
                   <div className="text-center py-8">
-                    <Button onClick={() => loadMore()} variant="outline">
+                    <Button onClick={() => loadMore()} variant="outline" size="lg">
                       Load More Projects
                     </Button>
                   </div>
-                ) : null}
+                )}
                 <div ref={scrollTriggerRef} className="h-1" />
               </>
             )}
 
+            {/* End State - All projects loaded */}
             {isComplete && projects.length > 0 && (
-              <div className="text-center py-20">
+              <div className="text-center py-16">
                 <div className="text-muted-foreground">
-                  <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>You've seen all {allProjectsFiltered.length} projects!</p>
+                  <Target className="h-16 w-16 mx-auto mb-6 opacity-30" />
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-foreground">All Projects Loaded</h3>
+                    <p className="text-sm">
+                      You've viewed all {allProjectsFiltered.length} projects
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-4">
+                      Refresh the page to check for new projects
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* No more projects to load but not complete (edge case) */}
+            {!hasNextPage && !isComplete && !isFetchingNextPage && projects.length > 0 && (
+              <div className="text-center py-12">
+                <div className="text-muted-foreground">
+                  <div className="h-12 w-12 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                    <Target className="h-6 w-6 opacity-50" />
+                  </div>
+                  <p className="text-sm">All available projects displayed</p>
                 </div>
               </div>
             )}

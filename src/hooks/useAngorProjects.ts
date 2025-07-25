@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCurrentIndexer } from '@/hooks/useCurrentIndexer';
@@ -14,7 +14,8 @@ interface UseAngorProjectsOptions {
 
 interface ProjectsResponse {
   projects: AngorProject[];
-  total: number;
+  offset: number;
+  limit: number;
   hasMore: boolean;
 }
 
@@ -22,7 +23,6 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
   const { enabled = true, refetchInterval } = options;
   const { network } = useNetwork();
   const { primaryUrl } = useCurrentIndexer();
-  const [totalItems, setTotalItems] = useState(0);
   const queryClient = useQueryClient();
   
   // Create indexer service instance
@@ -33,7 +33,6 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
     queryClient.invalidateQueries({
       queryKey: ['angor-projects']
     });
-    setTotalItems(0);
   }, [network, primaryUrl, queryClient]);
 
   // Main projects query with infinite loading
@@ -48,18 +47,19 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
     isFetching
   } = useInfiniteQuery<ProjectsResponse>({
     queryKey: ['angor-projects', network, primaryUrl],
-    initialPageParam: -1000,
-    queryFn: async ({ pageParam = -1000 }) => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam = 0 }) => {
       return await fetchProjectsPage(pageParam as number);
     },
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage.hasMore) return undefined;
+      // If the last page has fewer projects than requested, we've reached the end
+      if (!lastPage.hasMore || lastPage.projects.length < LIMIT) {
+        return undefined;
+      }
       
-      // Calculate next offset based on total and current position
+      // Calculate next offset
       const totalLoaded = allPages.reduce((sum, page) => sum + page.projects.length, 0);
-      const nextOffset = Math.max(0, lastPage.total - totalLoaded - LIMIT);
-      
-      return nextOffset >= 0 ? nextOffset : undefined;
+      return totalLoaded;
     },
     enabled: enabled && !!primaryUrl,
     refetchInterval,
@@ -68,52 +68,36 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
   });
 
   // Fetch a single page of projects
-  const fetchProjectsPage = async (pageOffset: number): Promise<ProjectsResponse> => {
-    let limit = LIMIT;
-    let currentOffset = pageOffset;
-
-    // Handle edge case when offset is negative but not -1000
-    if (currentOffset !== -1000 && currentOffset < 0) {
-      limit = LIMIT + currentOffset;
-      currentOffset = 0;
-    }
-
-    if (limit <= 0) {
-      return { projects: [], total: 0, hasMore: false };
-    }
-
-    // For first request, start from the beginning
-    if (currentOffset === -1000) {
-      currentOffset = 0;
-    }
-
+  const fetchProjectsPage = async (offset: number): Promise<ProjectsResponse> => {
     try {
-      const projects = await indexerService.getProjects(currentOffset, limit, network);
+      console.log(`🔄 Fetching projects: offset=${offset}, limit=${LIMIT}`);
       
-      // For now, we'll estimate total. In a real implementation, you'd get this from headers
-      const estimatedTotal = projects.length === limit ? (currentOffset + limit + limit) : (currentOffset + projects.length);
+      const projects = await indexerService.getProjects(offset, LIMIT, network);
       
-      if (pageOffset === -1000) {
-        setTotalItems(estimatedTotal);
-      }
-
-      // Calculate if there are more projects to load
-      const hasMore = projects.length === limit;
+      console.log(`✅ Fetched ${projects.length} projects from offset ${offset}`);
+      
+      // If we got fewer projects than requested, we've reached the end
+      const hasMore = projects.length === LIMIT;
 
       return {
         projects,
-        total: estimatedTotal,
+        offset,
+        limit: LIMIT,
         hasMore
       };
     } catch (error) {
-      console.error('Error fetching projects page:', error);
-      return { projects: [], total: 0, hasMore: false };
+      console.error('❌ Error fetching projects page:', error);
+      return { 
+        projects: [], 
+        offset, 
+        limit: LIMIT, 
+        hasMore: false 
+      };
     }
   };
 
   // Get flattened list of all projects
   const allProjects = data?.pages.flatMap(page => page.projects) || [];
-  const totalProjects = totalItems;
 
   // Load more projects
   const loadMore = useCallback(() => {
@@ -124,7 +108,6 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
 
   // Reset and refetch projects (useful when network or indexer changes)
   const resetAndRefetch = useCallback(async () => {
-    setTotalItems(0);
     // Clear all cache for projects
     await queryClient.resetQueries({
       queryKey: ['angor-projects', network, primaryUrl]
@@ -133,12 +116,12 @@ export function useAngorProjects(options: UseAngorProjectsOptions = {}) {
   }, [refetch, queryClient, network, primaryUrl]);
 
   // Check if all projects have been loaded
-  const isComplete = !hasNextPage && !isFetchingNextPage;
+  const isComplete = !hasNextPage && !isFetchingNextPage && !isLoading;
 
   return {
     // Data
     projects: allProjects,
-    totalProjects,
+    totalProjects: allProjects.length,
     
     // Loading states
     isLoading: isLoading || isFetching,
