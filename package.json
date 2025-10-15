@@ -96,7 +96,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
-    "happy-dom": "^18.0.1",
+    "happy-dom": "^20.0.2",
     "jsdom": "^26.1.0",
     "tw-animate-css": "^1.3.4",
     "typescript": "~5.8.3",
